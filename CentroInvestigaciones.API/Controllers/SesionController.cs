@@ -6,7 +6,6 @@ using CentroInvestigaciones.Shared;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CentroInvestigaciones.API.Controllers;
@@ -19,15 +18,13 @@ public sealed class SesionController : ControllerBase
     private readonly IAlmacenNucleo _almacen;
     private readonly ServicioIngreso _ingreso;
     private readonly ServicioUsuarios _usuarios;
-    private readonly IWebHostEnvironment _entorno;
 
-    public SesionController(OpcionesGoogle google, IAlmacenNucleo almacen, ServicioIngreso ingreso, ServicioUsuarios usuarios, IWebHostEnvironment entorno)
+    public SesionController(OpcionesGoogle google, IAlmacenNucleo almacen, ServicioIngreso ingreso, ServicioUsuarios usuarios)
     {
         _google = google;
         _almacen = almacen;
         _ingreso = ingreso;
         _usuarios = usuarios;
-        _entorno = entorno;
     }
 
     [HttpGet("estado")]
@@ -35,8 +32,7 @@ public sealed class SesionController : ControllerBase
     {
         return new EstadoAutenticacionDto
         {
-            GoogleConfigurado = _google.EstaConfigurado,
-            IngresoDesarrollo = _entorno.IsDevelopment()
+            GoogleConfigurado = _google.EstaConfigurado
         };
     }
 
@@ -176,53 +172,6 @@ public sealed class SesionController : ControllerBase
     public async Task<IActionResult> CompletarArea([FromBody] CompletarIngresoDto solicitud)
     {
         return await CompletarPerfil(solicitud);
-    }
-
-    [HttpGet("cuentas-desarrollo")]
-    public async Task<ActionResult<List<CuentaDesarrolloDto>>> CuentasDesarrollo(CancellationToken ct)
-    {
-        if (!_entorno.IsDevelopment())
-        {
-            return NotFound();
-        }
-
-        var (usuarios, _) = await _almacen.ListarUsuariosAsync(0, 200, null, null, ct);
-        return usuarios
-            .Where(usuario => !string.IsNullOrWhiteSpace(usuario.IdentificadorProveedor))
-            .OrderBy(usuario => usuario.Nombre)
-            .Select(usuario => new CuentaDesarrolloDto
-            {
-                Id = usuario.Id,
-                Nombre = usuario.Nombre,
-                Cargo = usuario.Cargo,
-                Estado = usuario.Estado.ToString()
-            })
-            .ToList();
-    }
-
-    [HttpGet("ingreso-desarrollo")]
-    public async Task<IActionResult> IngresoDesarrollo([FromQuery] Guid usuario, CancellationToken ct)
-    {
-        if (!_entorno.IsDevelopment())
-        {
-            return NotFound();
-        }
-
-        var cuenta = await _almacen.BuscarPorIdAsync(usuario, ct);
-        if (cuenta is null || string.IsNullOrWhiteSpace(cuenta.IdentificadorProveedor))
-        {
-            return Redirect("/login");
-        }
-
-        var identidad = new ClaimsIdentity(
-            [
-                new Claim(ClaimTypes.NameIdentifier, cuenta.IdentificadorProveedor),
-                new Claim(ClaimTypes.Name, cuenta.Nombre),
-                new Claim(ClaimTypes.Email, cuenta.CorreoElectronico)
-            ],
-            CookieAuthenticationDefaults.AuthenticationScheme);
-        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identidad));
-        return Redirect("/");
     }
 
     [HttpGet("ingresar")]

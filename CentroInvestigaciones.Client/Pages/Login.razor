@@ -23,20 +23,6 @@
             <Alerta Tipo="aviso" Mensaje="Google todavía no tiene credenciales en este entorno. El ingreso queda pendiente de esa configuración." />
         }
         <a class="boton boton-primario" href="api/sesion/ingresar">Continuar con Google</a>
-        @if (_cuentas.Count > 0)
-        {
-            <form class="ingreso-desarrollo" action="api/sesion/ingreso-desarrollo" method="get">
-                <p>Ingreso de desarrollo. Elige una cuenta que ya exista. No pide Google ni contraseña.</p>
-                <label for="cuenta-desarrollo">Cuenta</label>
-                <select id="cuenta-desarrollo" class="seleccion" name="usuario">
-                    @foreach (var cuenta in _cuentas)
-                    {
-                        <option value="@cuenta.Id">@cuenta.Nombre · @cuenta.Cargo</option>
-                    }
-                </select>
-                <button class="boton boton-secundario" type="submit">Entrar sin Google</button>
-            </form>
-        }
     }
 </main>
 
@@ -46,7 +32,6 @@
     private bool _errorConfiguracion;
     private bool _yaAutenticado;
     private string _destino = "/";
-    private List<CuentaDesarrolloDto> _cuentas = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -59,10 +44,6 @@
             var actual = await Sesion.ObtenerActualAsync();
             _googleConfigurado = estado.GoogleConfigurado;
             _yaAutenticado = actual.Autenticado;
-            if (estado.IngresoDesarrollo && !actual.Autenticado)
-            {
-                _cuentas = await Sesion.ListarCuentasDesarrolloAsync();
-            }
             if (actual.RequiereCompletarIngreso)
             {
                 _destino = "/primer-ingreso";

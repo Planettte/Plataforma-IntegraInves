@@ -26,11 +26,6 @@ public sealed class ClienteSesion
             ?? new SesionActualDto();
     }
 
-    public async Task<List<CuentaDesarrolloDto>> ListarCuentasDesarrolloAsync()
-    {
-        return await _http.GetFromJsonAsync<List<CuentaDesarrolloDto>>("api/sesion/cuentas-desarrollo") ?? [];
-    }
-
     public async Task CerrarAsync()
     {
         using var solicitud = new HttpRequestMessage(HttpMethod.Post, "api/sesion/cerrar");

@@ -58,8 +58,6 @@ Google y los secretos están en user-secrets del proyecto API, no en el código.
 
 Si SQL Server no responde, la API no se cae: usa los JSON de `datos-locales`. Esa carpeta no se sube a git. El administrador inicial sale de `Autenticacion:AdministradorInicial`; si esa clave está vacía, se usa el respaldo de `API/Infraestructura/DesarrolloLocal.cs`. En el primer ingreso hay que completar nombres, apellidos, contacto, extensión, cargo y área.
 
-El ingreso `api/sesion/ingreso-desarrollo` solo existe con el entorno Development. No está en un despliegue de producción.
-
 ## Herramientas
 
 Retención documental no guarda datos: se llena y se descarga el PDF. El resto persiste en su propio JSON, separado de `nucleo.json`.
