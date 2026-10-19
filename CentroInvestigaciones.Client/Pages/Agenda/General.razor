@@ -1,0 +1,297 @@
+@page "/agenda/general"
+@layout LayoutAgendaGeneral
+@inject ClienteAgenda Cliente
+@inject ClienteSesion Sesion
+@inject EstadoSesion Estado
+@inject NavigationManager Navegacion
+
+<PageTitle>Agenda general · Centro de Investigaciones</PageTitle>
+
+<h2>Agenda general</h2>
+<p class="texto-suave">Agenda de todos los médicos. Se consulta sin modificar los registros.</p>
+
+@if (_puedeCompartirEnlace)
+{
+    <div class="historial-enlace">
+        <span>Enlace para consultar sin ingresar</span>
+        <input class="entrada" readonly value="@Enlace" />
+    </div>
+}
+
+@if (_error is not null)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_dia is null)
+{
+    <EstadoVacio Mensaje="No se pudo mostrar la agenda." />
+}
+else
+{
+    <div class="agenda-lienzo">
+        <aside class="agenda-lateral">
+            <section class="hoja agenda-mini">
+                <div class="agenda-mini-nav">
+                    <button type="button" @onclick="MesAnterior" aria-label="Mes anterior">‹</button>
+                    <strong>@_fecha.ToString("MMMM yyyy", Cultura)</strong>
+                    <button type="button" @onclick="MesSiguiente" aria-label="Mes siguiente">›</button>
+                </div>
+                <div class="agenda-mes">
+                    @foreach (var nombre in new[] { "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom" })
+                    {
+                        <span class="agenda-mes-nombre">@nombre</span>
+                    }
+                    @foreach (var celda in Celdas())
+                    {
+                        if (celda is null)
+                        {
+                            <span></span>
+                        }
+                        else
+                        {
+                            var iso = celda.Value.ToString("yyyy-MM-dd");
+                            var festivo = _dia.FestivosMes.Contains(iso);
+                            <button type="button" class="agenda-dia @(celda == _fecha ? "activo" : null) @(festivo ? "festivo" : null)" disabled="@festivo" @onclick="() => IrDia(celda.Value)">
+                                <span>@celda.Value.Day</span>
+                                <span class="agenda-marcas">
+                                    @if (_dia.DiasOcupados.Contains(iso))
+                                    {
+                                        <span class="marca-ok" title="Hay registros">✓</span>
+                                    }
+                                    @if (_dia.DiasMonitorias.Contains(iso))
+                                    {
+                                        <svg class="marca-alarma" viewBox="0 0 24 24" aria-label="Hay monitoría"><path d="M6 16V10.5a6 6 0 1 1 12 0V16l1.5 2h-15z" /><path d="M10 19.5a2 2 0 0 0 4 0" /></svg>
+                                    }
+                                </span>
+                            </button>
+                        }
+                    }
+                </div>
+            </section>
+        </aside>
+        <section class="hoja agenda-dia-card">
+            <header class="agenda-dia-cabecera">
+                <h3>@_fecha.ToString("dddd d 'de' MMMM", Cultura)</h3>
+                <Boton Variante="secundario" AlActivar="AbrirHistorico">Histórico</Boton>
+            </header>
+            @if (_dia.Festivo)
+            {
+                <EstadoVacio Mensaje="Este día es festivo." />
+            }
+            else
+            {
+                <div class="agenda-dia-cuerpo con-monitorias">
+                    <AgendaRejilla Citas="_dia.Citas" />
+                    <aside class="agenda-monitorias">
+                        <h3>Monitorías (@_dia.Monitorias.Count/2)</h3>
+                        @if (_dia.Monitorias.Count == 0)
+                        {
+                            <p class="texto-suave">Sin monitorías este día.</p>
+                        }
+                        else
+                        {
+                            <ul class="lista-monitorias">
+                                @foreach (var monitoria in _dia.Monitorias)
+                                {
+                                    <li><span><strong>@monitoria.Descripcion</strong></span></li>
+                                }
+                            </ul>
+                        }
+                    </aside>
+                </div>
+            }
+        </section>
+    </div>
+}
+
+<Modal Visible="_historico" Titulo="Histórico" Clase="modal-ancho" AlCerrar="CerrarHistorico">
+    <ChildContent>
+        <div class="historico-filtros">
+            <p>Filtros</p>
+            <div class="fila-campos-3">
+                <div class="campo">
+                    <label for="general-texto">Palabra clave</label>
+                    <input id="general-texto" class="entrada" @bind="_buscarTexto" @bind:event="oninput" @bind:after="BuscarAsync" placeholder="Estudio, paciente o persona" />
+                </div>
+                <div class="campo">
+                    <label for="general-desde">Desde</label>
+                    <input id="general-desde" class="entrada" type="date" @bind="_buscarDesde" @bind:after="BuscarAsync" />
+                </div>
+                <div class="campo">
+                    <label for="general-hasta">Hasta</label>
+                    <input id="general-hasta" class="entrada" type="date" @bind="_buscarHasta" @bind:after="BuscarAsync" />
+                </div>
+            </div>
+        </div>
+        @if (_errorHistorico is not null)
+        {
+            <Alerta Tipo="peligro" Mensaje="@_errorHistorico" />
+        }
+        else if (SinCriterio)
+        {
+            <p class="texto-suave">Escribe algo o elige un rango de fechas para buscar.</p>
+        }
+        else if (_buscando)
+        {
+            <Cargando />
+        }
+        else if (_resultados.Count == 0)
+        {
+            <p class="texto-suave">Sin resultados.</p>
+        }
+        else
+        {
+            <p class="historico-cuenta">Histórico (@_resultados.Count)</p>
+            <ul class="lista-historico">
+                @foreach (var item in _resultados)
+                {
+                    <li class="historico-item">
+                        <div>
+                            <strong>@PresentacionAgenda.Titulo(item)</strong>
+                            <small>@item.Fecha · @item.HoraInicio–@item.HoraFin</small>
+                            <small>@item.Persona · @(item.Tipo == "otros" ? "Otros" : "Registro")</small>
+                        </div>
+                        <Boton Variante="secundario" AlActivar="() => VerResultado(item)">Ver</Boton>
+                    </li>
+                }
+            </ul>
+        }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="CerrarHistorico">Cerrar</Boton>
+    </Pie>
+</Modal>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Cultura = System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+
+    private DiaAgendaDto? _dia;
+    private DateOnly _fecha = DateOnly.FromDateTime(DateTime.Today);
+    private bool _cargando = true;
+    private bool _historico;
+    private bool _buscando;
+    private string _buscarTexto = "";
+    private DateTime? _buscarDesde;
+    private DateTime? _buscarHasta;
+    private string? _error;
+    private string? _errorHistorico;
+    private List<CitaAgendaDto> _resultados = [];
+
+    private bool SinCriterio =>
+        string.IsNullOrWhiteSpace(_buscarTexto) && _buscarDesde is null && _buscarHasta is null;
+
+    private bool _puedeCompartirEnlace =>
+        Estado.Actual.Permisos.Contains("herramientas.estudios.agenda")
+        || Estado.Actual.Permisos.Contains("herramientas.udd.agenda")
+        || Estado.Actual.Permisos.Contains("nucleo.usuarios.aprobar");
+
+    private string Enlace => Navegacion.ToAbsoluteUri("agenda/general").ToString();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Estado.CargarAsync(Sesion);
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        _cargando = _dia is null;
+        _error = null;
+        try
+        {
+            _dia = await Cliente.GeneralAsync(_fecha);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cargar la agenda.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private async Task MesAnterior()
+    {
+        _fecha = _fecha.AddMonths(-1);
+        await CargarAsync();
+    }
+
+    private async Task MesSiguiente()
+    {
+        _fecha = _fecha.AddMonths(1);
+        await CargarAsync();
+    }
+
+    private async Task IrDia(DateOnly fecha)
+    {
+        _fecha = fecha;
+        await CargarAsync();
+    }
+
+    private IEnumerable<DateOnly?> Celdas()
+    {
+        var primero = new DateOnly(_fecha.Year, _fecha.Month, 1);
+        var desplazamiento = ((int)primero.DayOfWeek + 6) % 7;
+        for (var i = 0; i < desplazamiento; i++)
+        {
+            yield return null;
+        }
+
+        for (var dia = 1; dia <= DateTime.DaysInMonth(_fecha.Year, _fecha.Month); dia++)
+        {
+            yield return new DateOnly(_fecha.Year, _fecha.Month, dia);
+        }
+    }
+
+    private void AbrirHistorico()
+    {
+        _historico = true;
+        _errorHistorico = null;
+    }
+
+    private void CerrarHistorico() => _historico = false;
+
+    private async Task BuscarAsync()
+    {
+        if (SinCriterio)
+        {
+            _resultados = [];
+            _errorHistorico = null;
+            return;
+        }
+
+        _buscando = true;
+        _errorHistorico = null;
+        try
+        {
+            _resultados = await Cliente.BuscarGeneralAsync(_buscarTexto.Trim(), Fecha(_buscarDesde), Fecha(_buscarHasta));
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _errorHistorico = excepcion.Message;
+            _resultados = [];
+        }
+        finally
+        {
+            _buscando = false;
+        }
+    }
+
+    private static string Fecha(DateTime? valor) => valor?.ToString("yyyy-MM-dd") ?? "";
+
+    private async Task VerResultado(CitaAgendaDto cita)
+    {
+        _historico = false;
+        if (DateOnly.TryParse(cita.Fecha, out var fecha))
+        {
+            _fecha = fecha;
+            await CargarAsync();
+        }
+    }
+}

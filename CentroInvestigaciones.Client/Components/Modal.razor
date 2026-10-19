@@ -1,0 +1,34 @@
+@if (Visible)
+{
+    <div class="modal-fondo" @onclick="Cerrar">
+        <div class="modal @Clase" role="dialog" aria-modal="true" aria-labelledby="@Identificador" @onclick:stopPropagation="true">
+            <h2 id="@Identificador">@Titulo</h2>
+            <div>@ChildContent</div>
+            @if (Pie is not null)
+            {
+                <div class="modal-acciones">@Pie</div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private readonly string Identificador = $"modal-{Guid.NewGuid():N}";
+
+    [Parameter] public bool Visible { get; set; }
+
+    [Parameter] public string Titulo { get; set; } = "";
+
+    [Parameter] public string? Clase { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public RenderFragment? Pie { get; set; }
+
+    [Parameter] public EventCallback AlCerrar { get; set; }
+
+    private async Task Cerrar()
+    {
+        await AlCerrar.InvokeAsync();
+    }
+}

@@ -1,0 +1,256 @@
+@page "/estudios-clinicos/plantillas/{Id:guid}"
+@inject ClientePlantillas Cliente
+@inject NavigationManager Navegacion
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_estudio is null)
+{
+    <EncabezadoPagina Titulo="Estudio" />
+    <Alerta Tipo="peligro" Mensaje="No se encontró el estudio." />
+}
+else
+{
+    <EncabezadoPagina Titulo="@_estudio.Nombre" Descripcion="@Descripcion(_estudio)" />
+
+    @if (_error is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+
+    <div class="acciones-fila">
+        <Boton Variante="secundario" AlActivar="AbrirEdicion">Editar estudio</Boton>
+        <Boton Variante="peligro" AlActivar="PedirBorrado">Eliminar</Boton>
+    </div>
+
+    <div class="campo">
+        <label for="buscar-plantilla">Buscar</label>
+        <input id="buscar-plantilla" class="entrada" @bind="_busqueda" @bind:event="oninput" placeholder="Nombre de la plantilla" />
+    </div>
+
+    <ul class="lista-plantillas">
+        @foreach (var carta in Filtradas)
+        {
+            var revisada = _revisadas.Contains(carta.Codigo);
+            <li class="fila-plantilla">
+                <input type="checkbox" checked="@revisada" aria-label="@($"Marcar {carta.Nombre}")" @onchange="e => MarcarAsync(carta.Codigo, e)" />
+                <a href="@($"/estudios-clinicos/plantillas/{Id}/{carta.Codigo}")">@carta.Nombre</a>
+            </li>
+        }
+    </ul>
+
+    <Modal Visible="_editando" Titulo="Editar estudio" AlCerrar="CerrarEdicion">
+        <ChildContent>
+            <CampoFormulario Id="editar-nombre" Etiqueta="Nombre del estudio" @bind-Valor="_nombre" />
+            <div class="fila-campos">
+                <CampoFormulario Id="editar-codigo" Etiqueta="Código o protocolo" @bind-Valor="_codigo" />
+                <CampoFormulario Id="editar-patrocinador" Etiqueta="Patrocinador" @bind-Valor="_patrocinador" />
+            </div>
+            <div class="fila-campos">
+                <div class="campo">
+                    <label for="editar-principal">Investigador principal</label>
+                    <select id="editar-principal" class="seleccion" value="@Texto(_principal)" @onchange="ElegirPrincipal">
+                        <option value="">Sin asignar</option>
+                        @foreach (var persona in _investigadores)
+                        {
+                            <option value="@persona.Id">@(string.IsNullOrWhiteSpace(persona.Titulo) ? persona.Nombre : $"{persona.Nombre} — {persona.Titulo}")</option>
+                        }
+                    </select>
+                </div>
+                <div class="campo">
+                    <label for="editar-sub">Subinvestigador</label>
+                    <select id="editar-sub" class="seleccion" value="@Texto(_sub)" @onchange="ElegirSub">
+                        <option value="">Sin asignar</option>
+                        @foreach (var persona in _investigadores)
+                        {
+                            <option value="@persona.Id">@(string.IsNullOrWhiteSpace(persona.Titulo) ? persona.Nombre : $"{persona.Nombre} — {persona.Titulo}")</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="fila-campos">
+                <div class="campo">
+                    <label for="editar-coordinador">Coordinador principal</label>
+                    <select id="editar-coordinador" class="seleccion" value="@Texto(_coordinador)" @onchange="ElegirCoordinador">
+                        <option value="">Sin asignar</option>
+                    @foreach (var persona in Principales)
+                    {
+                        <option value="@persona.Id">@persona.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="campo">
+                <label>Coordinador backup</label>
+                <p class="texto-suave">Wendy Katherine Mantilla Duarte</p>
+            </div>
+        </div>
+        </ChildContent>
+        <Pie>
+            <Boton Variante="secundario" AlActivar="CerrarEdicion">Cancelar</Boton>
+            <Boton Deshabilitado="@string.IsNullOrWhiteSpace(_nombre)" AlActivar="GuardarAsync">Guardar</Boton>
+        </Pie>
+    </Modal>
+
+    <Confirmacion Visible="_borrar" Titulo="Eliminar estudio" Mensaje="Se borra el estudio y las casillas marcadas. Las cartas no quedan guardadas." TextoConfirmar="Eliminar" AlConfirmar="EliminarAsync" AlCancelar="CancelarBorrado" />
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private EstudioPlantillaDto? _estudio;
+    private IReadOnlyList<CartaCatalogoDto> _cartas = [];
+    private IReadOnlyList<InvestigadorPlantillaDto> _investigadores = [];
+    private IReadOnlyList<CoordinadorPlantillaDto> _coordinadores = [];
+    private HashSet<string> _revisadas = new(StringComparer.OrdinalIgnoreCase);
+    private bool _cargando = true;
+    private bool _editando;
+    private bool _borrar;
+    private string _nombre = "";
+    private string _codigo = "";
+    private string _patrocinador = "";
+    private Guid? _principal;
+    private Guid? _sub;
+    private Guid? _coordinador;
+    private string _busqueda = "";
+    private string? _error;
+
+    private IEnumerable<CartaCatalogoDto> Filtradas =>
+        _cartas.Where(carta =>
+            string.IsNullOrWhiteSpace(_busqueda)
+            || carta.Nombre.Contains(_busqueda, StringComparison.OrdinalIgnoreCase)
+            || carta.Codigo.Contains(_busqueda, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<CoordinadorPlantillaDto> Principales =>
+        _coordinadores.Where(persona => !persona.Nombre.Equals("Wendy Katherine Mantilla Duarte", StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            _estudio = await Cliente.EstudioAsync(Id);
+            _cartas = await Cliente.CartasAsync();
+            _investigadores = await Cliente.InvestigadoresAsync();
+            _coordinadores = await Cliente.CoordinadoresAsync();
+            _revisadas = new HashSet<string>(_estudio?.PlantillasRevisadas ?? [], StringComparer.OrdinalIgnoreCase);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cargar el estudio.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private async Task MarcarAsync(string codigo, ChangeEventArgs cambio)
+    {
+        if (_estudio is null)
+        {
+            return;
+        }
+
+        var marcada = cambio.Value is true;
+        if (marcada)
+        {
+            _revisadas.Add(codigo);
+        }
+        else
+        {
+            _revisadas.Remove(codigo);
+        }
+
+        var guardado = await Cliente.GuardarRevisadasAsync(Id, _revisadas.ToList());
+        if (guardado is null)
+        {
+            _error = "No se pudo guardar la casilla.";
+            return;
+        }
+
+        _estudio = guardado;
+        _revisadas = new HashSet<string>(guardado.PlantillasRevisadas, StringComparer.OrdinalIgnoreCase);
+        _error = null;
+    }
+
+    private void AbrirEdicion()
+    {
+        if (_estudio is null)
+        {
+            return;
+        }
+
+        _nombre = _estudio.Nombre;
+        _codigo = _estudio.Codigo;
+        _patrocinador = _estudio.Patrocinador;
+        _principal = _estudio.InvestigadorPrincipalId;
+        _sub = _estudio.SubinvestigadorId;
+        _coordinador = _estudio.CoordinadorPrincipalId;
+        _editando = true;
+    }
+
+    private void CerrarEdicion() => _editando = false;
+
+    private void PedirBorrado() => _borrar = true;
+
+    private void CancelarBorrado() => _borrar = false;
+
+    private async Task GuardarAsync()
+    {
+        var (estudio, error) = await Cliente.GuardarEstudioAsync(Id, new GuardarEstudioPlantillaDto
+        {
+            Nombre = _nombre,
+            Codigo = _codigo,
+            Patrocinador = _patrocinador,
+            InvestigadorPrincipalId = _principal,
+            SubinvestigadorId = _sub,
+            CoordinadorPrincipalId = _coordinador
+        });
+        if (error is not null || estudio is null)
+        {
+            _error = error ?? "No se pudo guardar el estudio.";
+            _editando = false;
+            return;
+        }
+
+        _estudio = estudio;
+        _editando = false;
+        _error = null;
+    }
+
+    private async Task EliminarAsync()
+    {
+        if (await Cliente.EliminarEstudioAsync(Id))
+        {
+            Navegacion.NavigateTo("/estudios-clinicos/plantillas");
+            return;
+        }
+
+        _borrar = false;
+        _error = "No se pudo eliminar el estudio.";
+    }
+
+    private void ElegirPrincipal(ChangeEventArgs cambio) => _principal = IdDe(cambio);
+
+    private void ElegirSub(ChangeEventArgs cambio) => _sub = IdDe(cambio);
+
+    private void ElegirCoordinador(ChangeEventArgs cambio) => _coordinador = IdDe(cambio);
+
+    private static string Descripcion(EstudioPlantillaDto estudio)
+    {
+        var partes = new[] { estudio.Codigo, estudio.Patrocinador, estudio.InvestigadorPrincipal }
+            .Where(item => !string.IsNullOrWhiteSpace(item));
+        var texto = string.Join(" · ", partes);
+        return string.IsNullOrWhiteSpace(texto)
+            ? "Marca las plantillas que ya revisaste. Abrir una carta no la marca."
+            : texto;
+    }
+
+    private static string Texto(Guid? id) => id?.ToString() ?? "";
+
+    private static Guid? IdDe(ChangeEventArgs cambio) =>
+        Guid.TryParse(cambio.Value?.ToString(), out var id) ? id : null;
+}

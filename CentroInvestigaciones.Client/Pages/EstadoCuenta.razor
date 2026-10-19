@@ -1,0 +1,27 @@
+@page "/estado-cuenta"
+@inject ClienteSesion Sesion
+@inject EstadoSesion Estado
+
+<EncabezadoPagina Titulo="Estado de cuenta" Descripcion="Google confirma la identidad. La plataforma asigna el estado y los permisos." />
+
+@if (Estado.Cargando)
+{
+    <Cargando />
+}
+else if (Estado.Actual.Autenticado && !string.IsNullOrWhiteSpace(Estado.Actual.EstadoCuenta))
+{
+    <p><DistintivoEstado Texto="@TextosCuenta.Estado(Estado.Actual.EstadoCuenta)" Tono="@TextosCuenta.Tono(Estado.Actual.EstadoCuenta)" /></p>
+    @if (!string.IsNullOrWhiteSpace(Estado.Actual.AreaInteres))
+    {
+        <p>Área de interés: @Estado.Actual.AreaInteres</p>
+    }
+}
+else if (!Estado.Actual.Autenticado)
+{
+    <EstadoVacio Mensaje="No hay una sesión activa." />
+    <a class="boton boton-primario" href="/login">Ingresar</a>
+}
+else
+{
+    <Alerta Tipo="aviso" Mensaje="Hay identidad de Google, pero la cuenta de la plataforma todavía no está registrada." />
+}

@@ -1,0 +1,172 @@
+@page "/estudios-clinicos/inventario-farmacia"
+@inject ClienteFarmacia Cliente
+@inject Avisos Avisos
+@inject NavigationManager Navegacion
+
+<div class="cabecera-herramienta">
+    <EncabezadoPagina Titulo="Contabilidad de medicamento" Descripcion="Un formato por medicamento del estudio. El PDF se arma al descargar." />
+    <Boton AlActivar="Nuevo">Nuevo formato</Boton>
+</div>
+
+@if (_error is not null)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_formatos.Count == 0)
+{
+    <EstadoVacio Mensaje="No hay formatos. Crea uno con Nuevo formato." />
+}
+else
+{
+    <div class="filtros-dispositivo">
+        <label class="filtro-buscar">
+            Buscar
+            <input class="entrada" @bind="_texto" @bind:event="oninput" placeholder="Número, patrocinador o coordinador" />
+        </label>
+        <label>
+            Generado el
+            <input class="entrada" type="date" value="@_fecha" @onchange="CambiarFecha" />
+        </label>
+    </div>
+
+    @if (Filtrados.Count == 0)
+    {
+        <EstadoVacio Mensaje="Sin resultados." />
+    }
+    else
+    {
+        <div class="tabla-contenedor tabla-usuarios">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Número del estudio</th>
+                        <th>Patrocinador</th>
+                        <th>Coordinador</th>
+                        <th>Generado el</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Filtrados)
+                    {
+                        <tr>
+                            <td>@Texto(item.NumeroEstudio)</td>
+                            <td>@Texto(item.Patrocinador)</td>
+                            <td>@Texto(item.Coordinador)</td>
+                            <td>@Generado(item.GeneradoEl)</td>
+                            <td class="acciones-fila">
+                                <Boton Variante="secundario" Href="@($"/estudios-clinicos/inventario-farmacia/{item.Id}")">Abrir</Boton>
+                                <Boton Variante="peligro" AlActivar="() => PedirBorrado(item)">Eliminar</Boton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+<Confirmacion Visible="_borrar" Titulo="Eliminar formato" Mensaje="El formato deja de verse en la lista. Queda guardado quién y cuándo lo eliminó. El inventario general no cambia." TextoConfirmar="Eliminar" AlConfirmar="EliminarAsync" AlCancelar="CancelarBorrado" />
+
+@code {
+    private List<FormatoFarmaciaDto> _formatos = [];
+    private FormatoFarmaciaDto? _pendiente;
+    private bool _cargando = true;
+    private bool _borrar;
+    private string? _error;
+    private string _texto = "";
+    private string _fecha = "";
+
+    private List<FormatoFarmaciaDto> Filtrados => _formatos.Where(Coincide).ToList();
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            _formatos = (await Cliente.ListarFormatosAsync()).ToList();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudieron cargar los formatos.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void Nuevo() => Navegacion.NavigateTo("/estudios-clinicos/inventario-farmacia/nuevo");
+
+    private void PedirBorrado(FormatoFarmaciaDto item)
+    {
+        _pendiente = item;
+        _borrar = true;
+    }
+
+    private void CancelarBorrado()
+    {
+        _borrar = false;
+        _pendiente = null;
+    }
+
+    private async Task EliminarAsync()
+    {
+        if (_pendiente is null)
+        {
+            return;
+        }
+
+        _error = null;
+        try
+        {
+            await Cliente.EliminarFormatoAsync(_pendiente.Id);
+            _borrar = false;
+            _pendiente = null;
+            await CargarAsync();
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _borrar = false;
+            _error = excepcion.Message;
+        }
+    }
+
+    private bool Coincide(FormatoFarmaciaDto item)
+    {
+        if (!string.IsNullOrWhiteSpace(_fecha))
+        {
+            if (item.GeneradoEl is null || item.GeneradoEl.Value.LocalDateTime.ToString("yyyy-MM-dd") != _fecha)
+            {
+                return false;
+            }
+        }
+
+        var texto = _texto.Trim();
+        if (texto.Length == 0)
+        {
+            return true;
+        }
+
+        return item.NumeroEstudio.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || item.Patrocinador.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || item.Coordinador.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || item.Titulo.Contains(texto, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void CambiarFecha(ChangeEventArgs evento) => _fecha = evento.Value?.ToString() ?? "";
+
+    private static string Generado(DateTimeOffset? fecha) =>
+        fecha?.LocalDateTime.ToString("dd/MM/yyyy") ?? "—";
+
+    private static string Texto(string valor) => string.IsNullOrWhiteSpace(valor) ? "—" : valor;
+}

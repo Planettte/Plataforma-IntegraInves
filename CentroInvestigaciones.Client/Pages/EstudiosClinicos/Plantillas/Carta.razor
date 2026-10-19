@@ -1,0 +1,363 @@
+@page "/estudios-clinicos/plantillas/{Id:guid}/{Codigo}"
+@inject ClientePlantillas Cliente
+@inject IJSRuntime Js
+@inject Avisos Avisos
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_vista is null || _estudio is null)
+{
+    <EncabezadoPagina Titulo="Carta" />
+    <Alerta Tipo="peligro" Mensaje="No se encontró la carta." />
+}
+else
+{
+    <EncabezadoPagina Titulo="@_vista.Nombre" Descripcion="@_estudio.Nombre" />
+
+    <Alerta Tipo="aviso" Mensaje="Si cierras o sales de esta pagina se perdera el progreso, por favor asegurate de completar el formato y guardarlo/enviarlo" />
+
+    @if (_error is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+
+    <fieldset class="opciones-firma">
+        <legend>Quién aparece</legend>
+        <label>
+            <input type="radio" name="firmante" checked="@(_firmante == "principal")" @onchange="ElegirPrincipal" />
+            Investigador principal@Nombre(_vista.InvestigadorPrincipal)
+        </label>
+        <label>
+            <input type="radio" name="firmante" checked="@(_firmante == "sub")" @onchange="ElegirSub" />
+            Subinvestigador@Nombre(_vista.Subinvestigador)
+        </label>
+    </fieldset>
+    <fieldset class="opciones-firma">
+        <legend>Imagen de firma</legend>
+        <label>
+            <input type="radio" name="con-firma" checked="@(!_conFirma)" @onchange="ElegirSinImagen" />
+            Sin firma
+        </label>
+        <label>
+            <input type="radio" name="con-firma" checked="@_conFirma" @onchange="ElegirConImagen" />
+            Con firma
+        </label>
+    </fieldset>
+
+    <article class="hoja-carta">
+        @foreach (var linea in _vista.Lineas)
+        {
+            var amplio = linea.Tabla is null && !linea.Salto && linea.Trozos.Any(trozo => trozo.Amplio);
+            var sola = linea.Trozos.Count(trozo =>
+                    trozo.Tipo == "campo"
+                    || (trozo.Tipo == "texto" && !string.IsNullOrWhiteSpace(trozo.Texto))) <= 1
+                && linea.Trozos.Any(trozo => trozo.Tipo == "campo");
+            @if (linea.Salto)
+            {
+                <div class="salto-pagina">Página siguiente</div>
+                continue;
+            }
+            @if (linea.Tabla is not null)
+            {
+                <table class="tabla-carta">
+                    <thead>
+                        <tr>
+                            @foreach (var columna in linea.Tabla.Columnas)
+                            {
+                                <th>@columna</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var fila in linea.Tabla.Filas)
+                        {
+                            <tr>
+                                @foreach (var celda in fila)
+                                {
+                                    <td>
+                                        <textarea class="campo-carta" placeholder="@celda.Texto" value="@Valor(celda.Clave)" @oninput="e => Escribir(celda.Clave, e)"></textarea>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                continue;
+            }
+            <div class="linea-carta @(amplio ? "amplia" : null) @(linea.Espacio ? "espacio" : null) @(linea.Vineta ? "vineta" : null) @(sola ? "sola" : null)">
+                @if (linea.Vineta)
+                {
+                    <span>• </span>
+                }
+                @foreach (var trozo in linea.Trozos)
+                {
+                    if (trozo.Tipo == "firma")
+                    {
+                        <span class="firma-hueco"></span>
+                    }
+                    else if (trozo.Tipo == "texto")
+                    {
+                        @trozo.Texto
+                    }
+                    else if (trozo.Bloqueado && trozo.Clave == "investigador")
+                    {
+                        <span>Nombre del investigador: </span>
+                        <span class="campo-fijo">@Valor(trozo.Clave)</span>
+                        <span> </span>
+                    }
+                    else if (trozo.Bloqueado)
+                    {
+                        <span class="campo-fijo">@Valor(trozo.Clave)</span>
+                        <span> </span>
+                    }
+                    else if (trozo.Amplio)
+                    {
+                        <textarea class="campo-carta" placeholder="@trozo.Texto" value="@Valor(trozo.Clave)" @oninput="e => Escribir(trozo.Clave, e)"></textarea>
+                        <span> </span>
+                    }
+                    else
+                    {
+                        <input class="campo-carta" style="@AnchoCampo(trozo.Texto)" placeholder="@trozo.Texto" value="@Valor(trozo.Clave)" @oninput="e => Escribir(trozo.Clave, e)" />
+                        <span> </span>
+                    }
+                }
+            </div>
+        }
+    </article>
+
+    <div class="acciones-carta">
+        <Boton Deshabilitado="_ocupado" AlActivar="DescargarAsync">Descargar PDF</Boton>
+        <Boton Variante="secundario" Deshabilitado="_ocupado" AlActivar="AbrirEnvio">Enviar</Boton>
+    </div>
+
+    @if (_enviando)
+    {
+        <section class="hoja panel-envio">
+            <p>El PDF se adjunta al correo. Puedes enviarlo al coordinador principal, al backup, o a los dos.</p>
+            <label class="opcion-envio">
+                <input type="checkbox" @bind="_alPrincipal" />
+                Coordinador principal@Destino(_estudio.CoordinadorPrincipal, _estudio.CorreoCoordinadorPrincipal)
+            </label>
+            <label class="opcion-envio">
+                <input type="checkbox" @bind="_alApoyo" />
+                Coordinador backup@Destino(string.IsNullOrWhiteSpace(_estudio.CoordinadorApoyo) ? "Wendy Katherine Mantilla Duarte" : _estudio.CoordinadorApoyo, _estudio.CorreoCoordinadorApoyo)
+            </label>
+            <div class="acciones-fila">
+                <Boton Deshabilitado="@(_ocupado || (!_alPrincipal && !_alApoyo))" AlActivar="EnviarAsync">Enviar correo</Boton>
+                <Boton Variante="secundario" AlActivar="CerrarEnvio">Cancelar</Boton>
+            </div>
+        </section>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    [Parameter] public string Codigo { get; set; } = "";
+
+    private EstudioPlantillaDto? _estudio;
+    private VistaCartaDto? _vista;
+    private Dictionary<string, string> _campos = new(StringComparer.Ordinal);
+    private string _firmante = "principal";
+    private bool _conFirma;
+    private bool _cargando = true;
+    private bool _ocupado;
+    private bool _enviando;
+    private bool _alPrincipal = true;
+    private bool _alApoyo;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _cargando = true;
+        _error = null;
+        _enviando = false;
+        try
+        {
+            _estudio = await Cliente.EstudioAsync(Id);
+            _vista = _estudio is null ? null : await Cliente.CartaAsync(Id, Codigo);
+            _campos = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (_vista is not null)
+            {
+                foreach (var trozo in CamposDe(_vista.Lineas))
+                {
+                    _campos[trozo.Clave] = trozo.Valor;
+                }
+            }
+
+            _firmante = "principal";
+            _conFirma = false;
+            AplicarFirmante("principal", _vista?.InvestigadorPrincipal, _vista?.TituloPrincipal);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo abrir la carta.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void ElegirPrincipal(ChangeEventArgs _) => AplicarFirmante("principal", _vista?.InvestigadorPrincipal, _vista?.TituloPrincipal);
+
+    private void ElegirSub(ChangeEventArgs _) => AplicarFirmante("sub", _vista?.Subinvestigador, _vista?.TituloSub);
+
+    private void ElegirSinImagen(ChangeEventArgs _) => _conFirma = false;
+
+    private void ElegirConImagen(ChangeEventArgs _) => _conFirma = true;
+
+    private void AplicarFirmante(string firmante, string? nombre, string? titulo)
+    {
+        _firmante = firmante;
+        if (_campos.ContainsKey("investigador"))
+        {
+            _campos["investigador"] = nombre ?? "";
+        }
+
+        if (_campos.ContainsKey("especialidad"))
+        {
+            _campos["especialidad"] = titulo ?? "";
+        }
+    }
+
+    private void Escribir(string clave, ChangeEventArgs cambio)
+    {
+        _campos[clave] = cambio.Value?.ToString() ?? "";
+    }
+
+    private string Valor(string clave) => _campos.TryGetValue(clave, out var valor) ? valor : "";
+
+    private static string? AnchoCampo(string texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto) || texto.Length <= 18)
+        {
+            return null;
+        }
+
+        var caracteres = Math.Min(texto.Length + 1, 62);
+        return $"width: {caracteres}ch; max-width: 100%;";
+    }
+
+    private static IEnumerable<TrozoCartaDto> CamposDe(IEnumerable<LineaCartaDto> lineas)
+    {
+        foreach (var linea in lineas)
+        {
+            foreach (var trozo in linea.Trozos.Where(item => item.Tipo == "campo"))
+            {
+                yield return trozo;
+            }
+
+            if (linea.Tabla is null)
+            {
+                continue;
+            }
+
+            foreach (var celda in linea.Tabla.Filas.SelectMany(fila => fila).Where(item => item.Tipo == "campo"))
+            {
+                yield return celda;
+            }
+        }
+    }
+
+    private void AbrirEnvio()
+    {
+        _error = null;
+        _enviando = true;
+    }
+
+    private void CerrarEnvio() => _enviando = false;
+
+    private async Task DescargarAsync()
+    {
+        if (_vista is null)
+        {
+            return;
+        }
+
+        _ocupado = true;
+        _error = null;
+        try
+        {
+            var (pdf, error) = await Cliente.PdfAsync(Id, Codigo, Solicitud());
+            if (error is not null || pdf is null)
+            {
+                _error = error ?? "No se pudo armar el PDF.";
+                return;
+            }
+
+            var nombre = string.Join("-", _vista.Nombre.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Trim();
+            await Js.InvokeVoidAsync("centroArchivo.descargar", $"{nombre}.pdf", Convert.ToBase64String(pdf));
+            Avisos.Completado();
+        }
+        catch (Exception)
+        {
+            _error = "No se pudo descargar el PDF.";
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private async Task EnviarAsync()
+    {
+        _ocupado = true;
+        _error = null;
+        try
+        {
+            var datos = Solicitud();
+            var error = await Cliente.EnviarAsync(Id, Codigo, new EnviarCartaDto
+            {
+                Firmante = datos.Firmante,
+                ConFirma = datos.ConFirma,
+                Campos = datos.Campos,
+                AlPrincipal = _alPrincipal,
+                AlApoyo = _alApoyo
+            });
+            if (error is not null)
+            {
+                _error = error;
+                return;
+            }
+
+            _enviando = false;
+            Avisos.Completado();
+        }
+        catch (Exception)
+        {
+            _error = "No se pudo enviar el correo.";
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private GenerarCartaDto Solicitud() => new()
+    {
+        Firmante = _firmante,
+        ConFirma = _conFirma,
+        Campos = new Dictionary<string, string>(_campos)
+    };
+
+    private static string Nombre(string? nombre) =>
+        string.IsNullOrWhiteSpace(nombre) ? "" : $" ({nombre})";
+
+    private static string Destino(string nombre, string correo)
+    {
+        if (string.IsNullOrWhiteSpace(nombre) && string.IsNullOrWhiteSpace(correo))
+        {
+            return " (sin asignar)";
+        }
+
+        if (string.IsNullOrWhiteSpace(correo))
+        {
+            return $" ({nombre}, sin correo)";
+        }
+
+        return string.IsNullOrWhiteSpace(nombre) ? $" ({correo})" : $" ({nombre}, {correo})";
+    }
+}

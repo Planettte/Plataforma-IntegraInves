@@ -1,0 +1,137 @@
+@page "/primer-ingreso"
+@layout LoginLayout
+@inject ClienteNucleo Nucleo
+@inject ClienteSesion Sesion
+@inject EstadoSesion Estado
+@inject NavigationManager Navegacion
+
+<main class="login-tarjeta ingreso-formulario">
+    <p class="kicker">Primer ingreso</p>
+    <h1>Completa tu perfil</h1>
+    <p>Estos datos quedan asociados a tu cuenta. El área y el cargo los asigna un jefe o un administrador al aprobar.</p>
+
+    @if (_cargando)
+    {
+        <Cargando />
+    }
+    else if (_errorCarga is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_errorCarga" />
+    }
+    else if (!Estado.Actual.Autenticado)
+    {
+        <EstadoVacio Mensaje="Ingresa con Google para completar el registro." />
+        <a class="boton boton-primario" href="/login">Ingresar</a>
+    }
+    else if (!Estado.Actual.RequiereCompletarIngreso)
+    {
+        <Alerta Tipo="exito" Mensaje="El perfil ya está completo." />
+        <a class="boton boton-primario" href="@(Estado.Actual.EstadoCuenta == "Activo" ? "/" : "/estado-cuenta")">Continuar</a>
+    }
+    else
+    {
+        @if (_error is not null)
+        {
+            <Alerta Tipo="peligro" Mensaje="@_error" />
+        }
+
+        <div class="campo">
+            <label for="nombres">Nombres</label>
+            <input id="nombres" class="entrada" @bind="_nombres" autocomplete="given-name" />
+        </div>
+        <div class="campo">
+            <label for="apellidos">Apellidos</label>
+            <input id="apellidos" class="entrada" @bind="_apellidos" autocomplete="family-name" />
+        </div>
+        <div class="campo">
+            <label for="contacto">Número de contacto</label>
+            <input id="contacto" class="entrada" @bind="_contacto" autocomplete="tel" />
+        </div>
+        <div class="campo">
+            <label for="extension">Extensión</label>
+            <input id="extension" class="entrada" @bind="_extension" />
+        </div>
+        <Boton Deshabilitado="@(!FormularioValido)" Cargando="_guardando" TextoCargando="Enviando…" AlActivar="Guardar">Enviar solicitud</Boton>
+    }
+</main>
+
+@code {
+    private bool _cargando = true;
+    private bool _guardando;
+    private string? _error;
+    private string? _errorCarga;
+    private string _nombres = "";
+    private string _apellidos = "";
+    private string _contacto = "";
+    private string _extension = "";
+
+    private bool FormularioValido =>
+        !string.IsNullOrWhiteSpace(_nombres)
+        && !string.IsNullOrWhiteSpace(_apellidos)
+        && !string.IsNullOrWhiteSpace(_contacto);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await Estado.CargarAsync(Sesion);
+            if (Estado.Actual.Autenticado)
+            {
+                PrefillDesdeNombre(Estado.Actual.Nombre);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorCarga = "No se pudo comprobar la sesión.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void PrefillDesdeNombre(string? nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            return;
+        }
+
+        var partes = nombre.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 1)
+        {
+            _nombres = partes[0];
+        }
+        else
+        {
+            _nombres = partes[0];
+            _apellidos = partes[1];
+        }
+    }
+
+    private async Task Guardar()
+    {
+        _guardando = true;
+        _error = null;
+        try
+        {
+            await Nucleo.CompletarPerfilAsync(new CompletarIngresoDto
+            {
+                Nombres = _nombres.Trim(),
+                Apellidos = _apellidos.Trim(),
+                NumeroContacto = _contacto.Trim(),
+                Extension = _extension.Trim()
+            });
+            await Estado.CargarAsync(Sesion);
+            Navegacion.NavigateTo(Estado.Actual.EstadoCuenta == "Activo" ? "/" : "/estado-cuenta");
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo guardar el perfil. Revisa los campos e inténtalo de nuevo.";
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

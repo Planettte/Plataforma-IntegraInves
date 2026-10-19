@@ -1,0 +1,7 @@
+<div class="alerta alerta-@Tipo" role="status">@Mensaje</div>
+
+@code {
+    [Parameter] public string Tipo { get; set; } = "informacion";
+
+    [Parameter] public string Mensaje { get; set; } = "";
+}

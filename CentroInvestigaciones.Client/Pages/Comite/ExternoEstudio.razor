@@ -1,0 +1,578 @@
+@page "/comite/estudios/externo"
+@page "/comite/estudios/externo/{Token}"
+@layout LayoutExterno
+@inject ClienteEstudios Cliente
+@inject NavigationManager Navegacion
+
+<PageTitle>Registro de estudios · Centro de Investigaciones</PageTitle>
+
+@if (_cargando)
+{
+    <p class="cargando">Cargando el registro…</p>
+}
+else if (_modo == "noencontrado")
+{
+    <section class="hoja">
+        <h2>Enlace no válido</h2>
+        <p>Este enlace no corresponde a un estudio. Pide uno nuevo al comité.</p>
+    </section>
+}
+else if (_modo == "listo")
+{
+    <section class="hoja">
+        <h2>@_tituloListo</h2>
+        <p>@_textoListo</p>
+        @if (!string.IsNullOrEmpty(_aviso))
+        {
+            <Alerta Tipo="informacion" Mensaje="@_aviso" />
+        }
+        @if (_archivos.Count > 0)
+        {
+            <h3>Documentos</h3>
+            <ul>
+                @foreach (var archivo in _archivos)
+                {
+                    <li><a href="@($"api/estudios/publico/{_token}/archivos/{archivo.Id}")" target="_blank">@archivo.Nombre</a></li>
+                }
+            </ul>
+        }
+    </section>
+}
+else if (_modo == "elegir")
+{
+    <section class="hoja">
+        <h2>Nuevo registro</h2>
+        <p>Elige el tipo de estudio. Si el comité pide una corrección, el enlace llega al correo del investigador.</p>
+        <div class="acciones-fila">
+            <Boton AlActivar='() => Elegir("academico")'>Estudio académico</Boton>
+            <Boton Variante="secundario" AlActivar='() => Elegir("clinico")'>Estudio clínico</Boton>
+        </div>
+    </section>
+}
+else if (_modo == "revision")
+{
+    <section class="hoja">
+        <h2>Documentos en revisión</h2>
+        <p>@_textoListo</p>
+        @if (!string.IsNullOrEmpty(_aviso))
+        {
+            <Alerta Tipo="informacion" Mensaje="@_aviso" />
+        }
+    </section>
+}
+else if (_modo == "fase2")
+{
+    <PasosEstudio FaseDos="true" Clinico="@(_form.TipoRegistro == "clinico")" />
+    <section class="hoja">
+        <h2>@_form.Titulo</h2>
+        <p>El comité ya emitió el aval. Carga el número de aprobación del CEI y los tres documentos.</p>
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <Alerta Tipo="peligro" Mensaje="@_error" />
+        }
+        <div class="campo">
+            <label for="numero-cei">Número de aprobación del CEI</label>
+            <input id="numero-cei" class="entrada" @bind="_numeroCei" />
+        </div>
+        <div class="campo">
+            <label>Aval del comité</label>
+            <ZonaArchivo Texto="Haz clic o arrastra el archivo aquí" Ayuda="Aval del comité — máx. 20 MB" AlCambiar="ElegirFase2Aval" />
+            @if (_fase2Aval is not null)
+            {
+                <p class="zona-archivo-nombre">@_fase2Aval.Nombre</p>
+            }
+        </div>
+        <div class="campo">
+            <label>Aprobación del CEI</label>
+            <ZonaArchivo Texto="Haz clic o arrastra el archivo aquí" Ayuda="Aprobación del CEI — máx. 20 MB" AlCambiar="ElegirFase2Cei" />
+            @if (_fase2Cei is not null)
+            {
+                <p class="zona-archivo-nombre">@_fase2Cei.Nombre</p>
+            }
+        </div>
+        <div class="campo">
+            <label>Acta de inicio</label>
+            <ZonaArchivo Texto="Haz clic o arrastra el archivo aquí" Ayuda="Acta de inicio — máx. 20 MB" AlCambiar="ElegirFase2Acta" />
+            @if (_fase2Acta is not null)
+            {
+                <p class="zona-archivo-nombre">@_fase2Acta.Nombre</p>
+            }
+        </div>
+        <Boton Deshabilitado="_ocupado" AlActivar="EnviarFase2Async">Enviar fase 2</Boton>
+    </section>
+}
+else
+{
+    <PasosEstudio Clinico="@(_form.TipoRegistro == "clinico")" />
+    @if (!string.IsNullOrWhiteSpace(_mensajeCorreccion))
+    {
+        <Alerta Tipo="informacion" Mensaje="@_mensajeCorreccion" />
+    }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+
+    <section class="hoja">
+        <h3>Datos del estudio</h3>
+        <div class="rejilla-form">
+            <div class="campo">
+                <label for="anio">Año</label>
+                <input id="anio" class="entrada" type="number" @bind="_form.Anio" />
+            </div>
+            <div class="campo">
+                <label for="tipo">Tipo</label>
+                <select id="tipo" class="seleccion" @bind="_form.Tipo">
+                    <option value="">Seleccionar…</option>
+                    @if (_form.TipoRegistro == "clinico")
+                    {
+                        <option>Estudio Clínico</option>
+                        <option>Ensayo Clínico</option>
+                    }
+                    else
+                    {
+                        <option>Estudio académico - Tesis</option>
+                        <option>Estudio académico - Individual</option>
+                        <option>Reporte de caso</option>
+                    }
+                </select>
+            </div>
+        </div>
+        @if (_form.TipoRegistro == "academico")
+        {
+            <div class="campo">
+                <label for="especialidad">Especialidad</label>
+                <input id="especialidad" class="entrada" @bind="_form.Especialidad" />
+            </div>
+        }
+        else
+        {
+            <div class="rejilla-form">
+                <div class="campo">
+                    <label for="acronimo">Acrónimo</label>
+                    <input id="acronimo" class="entrada" @bind="_form.Acronimo" />
+                </div>
+                <div class="campo">
+                    <label for="tipo-inv">Tipo de investigación</label>
+                    <select id="tipo-inv" class="seleccion" @bind="_form.TipoInvestigacion">
+                        <option value="">Seleccionar…</option>
+                        <option>Estudio Clínico</option>
+                        <option>Ensayo Observacional</option>
+                        <option>Ensayo Clínico</option>
+                    </select>
+                </div>
+            </div>
+        }
+        <div class="campo">
+            <label for="titulo">Título</label>
+            <input id="titulo" class="entrada" @bind="_form.Titulo" />
+        </div>
+        <div class="rejilla-form">
+            <div class="campo">
+                <label for="institucion">Institución</label>
+                <select id="institucion" class="seleccion" @bind="_institucion">
+                    <option value="">Seleccionar…</option>
+                    <option>FOSCAL</option>
+                    <option>UNAB</option>
+                    <option>UIS</option>
+                    <option>UDES</option>
+                    <option>UIS/FOSCAL</option>
+                    <option value="Otra">Otra…</option>
+                </select>
+            </div>
+            @if (_institucion == "Otra")
+            {
+                <div class="campo">
+                    <label for="institucion-otra">Cuál</label>
+                    <input id="institucion-otra" class="entrada" @bind="_institucionOtra" />
+                </div>
+            }
+        </div>
+        <div class="rejilla-form">
+            <div class="campo">
+                <label for="investigador">Investigador principal</label>
+                <input id="investigador" class="entrada" @bind="_form.InvestigadorPrincipal" />
+            </div>
+            <div class="campo">
+                <label for="correo">Correo</label>
+                <input id="correo" class="entrada" type="email" @bind="_form.Correo" />
+            </div>
+        </div>
+        <div class="campo">
+            <label for="coinvestigadores">Co-investigadores</label>
+            <textarea id="coinvestigadores" class="entrada" rows="2" @bind="_form.CoInvestigadores"></textarea>
+        </div>
+        @if (_form.TipoRegistro == "clinico")
+        {
+            <div class="rejilla-form">
+                <div class="campo">
+                    <label for="coordinador">Coordinador</label>
+                    <input id="coordinador" class="entrada" @bind="_form.Coordinador" />
+                </div>
+                <div class="campo">
+                    <label for="patrocinador">Patrocinador</label>
+                    <input id="patrocinador" class="entrada" @bind="_form.Patrocinador" />
+                </div>
+            </div>
+            <div class="campo">
+                <label for="paises">Países</label>
+                <input id="paises" class="entrada" @bind="_form.Paises" />
+            </div>
+            <div class="campo">
+                <label for="objetivo">Objetivo</label>
+                <textarea id="objetivo" class="entrada" rows="3" @bind="_form.Objetivo"></textarea>
+            </div>
+        }
+    </section>
+
+    @if (_form.TipoRegistro == "academico")
+    {
+        <FormatosAcademicos Datos="_form"
+                            Formatos="_form.Formatos"
+                            FirmaCarta="_form.FirmaCartaSolicitud"
+                            FirmaIntencion="_form.FirmaCartaIntencion"
+                            FirmaAcuerdo="_form.FirmaAcuerdo"
+                            FirmaRegistro="_form.FirmaRegistro"
+                            FirmaHoja="_form.FirmaHojaVida"
+                            AlFirmaCarta="v => { _form.FirmaCartaSolicitud = v; }"
+                            AlFirmaIntencion="v => { _form.FirmaCartaIntencion = v; }"
+                            AlFirmaAcuerdo="v => { _form.FirmaAcuerdo = v; }"
+                            AlFirmaRegistro="v => { _form.FirmaRegistro = v; }"
+                            AlFirmaHoja="v => { _form.FirmaHojaVida = v; }" />
+    }
+
+    <section class="hoja">
+        <h3>Archivos de soporte</h3>
+        <ZonaArchivo @key="_claveAdjuntos" Multiple="true" Texto="Haz clic o arrastra archivos aquí" Ayuda="@TextoAdjuntos" AlCambiar="ElegirAdjuntos" />
+        @if (_adjuntos.Count > 0)
+        {
+            <ul class="lista-adjuntos">
+                @foreach (var archivo in _adjuntos)
+                {
+                    <li>
+                        <span>@archivo.Nombre</span>
+                        <button type="button" @onclick="() => QuitarAdjunto(archivo)">Quitar</button>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <div class="acciones-fila">
+        @if (string.IsNullOrWhiteSpace(Token))
+        {
+            <Boton Variante="secundario" Deshabilitado="_ocupado" AlActivar="VolverTipo">Volver a elegir el tipo</Boton>
+        }
+        <Boton Deshabilitado="_ocupado" AlActivar="EnviarFase1Async">Enviar fase 1</Boton>
+    </div>
+}
+
+@code {
+    private static readonly string[] Instituciones = ["FOSCAL", "UNAB", "UIS", "UDES", "UIS/FOSCAL"];
+    private static readonly string[] Partidas =
+    [
+        "TALENTO HUMANO", "MATERIALES", "EQUIPOS", "SERVICIOS", "DIVULGACIÓN",
+        "COSTO COMITÉ DE ETICA", "COSTOS COMITÉ DE INVESTIGACION"
+    ];
+
+    [Parameter] public string? Token { get; set; }
+
+    private readonly GuardarFase1EstudioDto _form = new() { Anio = DateTime.Now.Year };
+    private string _modo = "elegir";
+    private string _institucion = "";
+    private string _institucionOtra = "";
+    private string _mensajeCorreccion = "";
+    private string _numeroCei = "";
+    private string? _error;
+    private string? _aviso;
+    private string? _token;
+    private string _tituloListo = "Registro recibido";
+    private string _textoListo = "El comité ya puede revisar este estudio.";
+    private bool _cargando = true;
+    private bool _ocupado;
+    private int _claveAdjuntos;
+    private string? _tokenCreado;
+    private List<AdjuntoPendiente> _adjuntos = [];
+    private List<ArchivoEstudioDto> _archivos = [];
+    private AdjuntoPendiente? _fase2Aval;
+    private AdjuntoPendiente? _fase2Cei;
+    private AdjuntoPendiente? _fase2Acta;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        PrepararListas();
+        if (string.IsNullOrWhiteSpace(Token))
+        {
+            _modo = "elegir";
+            _cargando = false;
+            return;
+        }
+
+        _cargando = true;
+        try
+        {
+            var estudio = await Cliente.ObtenerPublicoAsync(Token);
+            if (estudio is null)
+            {
+                _modo = "noencontrado";
+                return;
+            }
+
+            Copiar(estudio);
+            _token = estudio.Token;
+            _archivos = estudio.Archivos;
+            _mensajeCorreccion = estudio.MensajeCorreccion;
+            if (estudio.Estado == "Aprobado por el CEI")
+            {
+                _modo = "listo";
+                _tituloListo = "Aprobado por el CEI";
+                _textoListo = $"El trámite quedó cerrado. Número CEI: {estudio.NumeroAprobacionCei}.";
+            }
+            else if (estudio.Estado == "Documentos de la fase 2 en revisión")
+            {
+                _modo = "revision";
+                _tituloListo = "Documentos en revisión";
+                _textoListo = "Los documentos de la fase 2 quedaron recibidos y están en revisión. Las novedades llegan por este correo.";
+            }
+            else if (estudio.Estado == "Aprobado por el Comité de Investigaciones")
+            {
+                _modo = "fase2";
+                _numeroCei = estudio.NumeroAprobacionCei;
+            }
+            else
+            {
+                _modo = "formulario";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _modo = "noencontrado";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void Elegir(string tipo)
+    {
+        _form.TipoRegistro = tipo;
+        _modo = "formulario";
+    }
+
+    private void VolverTipo() => _modo = "elegir";
+
+    private string TextoAdjuntos => _form.TipoRegistro == "clinico"
+        ? "Aval, protocolo, consentimiento, instrumentos, etc. — máx. 20 MB por archivo"
+        : "Protocolos, consentimientos, instrumentos, etc. — máx. 20 MB por archivo";
+
+    private async Task ElegirAdjuntos(InputFileChangeEventArgs evento)
+    {
+        foreach (var archivo in evento.GetMultipleFiles(20))
+        {
+            if (_adjuntos.Any(item => item.Nombre == archivo.Name && item.Bytes.LongLength == archivo.Size))
+            {
+                continue;
+            }
+
+            var pendiente = await LeerAdjunto(archivo);
+            if (pendiente is not null)
+            {
+                _adjuntos.Add(pendiente);
+            }
+        }
+
+        _claveAdjuntos++;
+    }
+
+    private Task ElegirFase2Aval(InputFileChangeEventArgs evento) => GuardarFase2(evento, valor => _fase2Aval = valor);
+
+    private Task ElegirFase2Cei(InputFileChangeEventArgs evento) => GuardarFase2(evento, valor => _fase2Cei = valor);
+
+    private Task ElegirFase2Acta(InputFileChangeEventArgs evento) => GuardarFase2(evento, valor => _fase2Acta = valor);
+
+    private async Task GuardarFase2(InputFileChangeEventArgs evento, Action<AdjuntoPendiente?> asignar)
+    {
+        asignar(await LeerAdjunto(evento.File));
+    }
+
+    private async Task<AdjuntoPendiente?> LeerAdjunto(IBrowserFile archivo)
+    {
+        if (archivo.Size > 20 * 1024 * 1024)
+        {
+            _error = $"{archivo.Name} supera 20 MB.";
+            return null;
+        }
+
+        await using var lectura = archivo.OpenReadStream(20 * 1024 * 1024);
+        using var memoria = new MemoryStream();
+        await lectura.CopyToAsync(memoria);
+        return new AdjuntoPendiente(archivo.Name, archivo.ContentType, memoria.ToArray());
+    }
+
+    private void QuitarAdjunto(AdjuntoPendiente archivo)
+    {
+        _adjuntos.Remove(archivo);
+        _claveAdjuntos++;
+    }
+
+    private async Task EnviarFase1Async()
+    {
+        _form.Institucion = _institucion == "Otra" ? _institucionOtra.Trim() : _institucion;
+        if (!Fase1Completa())
+        {
+            _error = "Completa año, título, tipo, institución, investigador y correo.";
+            return;
+        }
+
+        _ocupado = true;
+        _error = null;
+        try
+        {
+            var token = string.IsNullOrWhiteSpace(Token) ? _tokenCreado : Token;
+            var resultado = string.IsNullOrWhiteSpace(token)
+                ? await Cliente.CrearPublicoAsync(_form)
+                : await Cliente.CorregirPublicoAsync(token, _form);
+            var estudio = resultado.Estudio;
+            if (estudio is null || string.IsNullOrWhiteSpace(estudio.Token))
+            {
+                _error = "El registro no se guardó.";
+                return;
+            }
+
+            _tokenCreado = estudio.Token;
+            foreach (var archivo in _adjuntos)
+            {
+                await Cliente.SubirPublicoAsync(estudio.Token, "adicional", archivo.Nombre, archivo.Tipo, archivo.Bytes);
+            }
+
+            var fresco = await Cliente.ObtenerPublicoAsync(estudio.Token) ?? estudio;
+            MostrarListo(fresco, resultado.Aviso, "Registro recibido", "El comité ya puede revisar este estudio. Si hace falta una corrección, el enlace llega al correo del investigador.");
+        }
+        catch (Exception)
+        {
+            _error = _tokenCreado is null
+                ? "No se pudo enviar la fase 1. Revisa los datos obligatorios y el tamaño de los archivos."
+                : "El registro se guardó, pero no se pudieron subir los archivos de soporte. Pulsa enviar otra vez para reintentar.";
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private async Task EnviarFase2Async()
+    {
+        if (string.IsNullOrWhiteSpace(_numeroCei) || _fase2Aval is null || _fase2Cei is null || _fase2Acta is null || string.IsNullOrWhiteSpace(Token))
+        {
+            _error = "Escribe el número del CEI y adjunta los tres archivos.";
+            return;
+        }
+
+        _ocupado = true;
+        _error = null;
+        try
+        {
+            await Cliente.SubirPublicoAsync(Token, "fase2-aval", _fase2Aval.Nombre, _fase2Aval.Tipo, _fase2Aval.Bytes);
+            await Cliente.SubirPublicoAsync(Token, "fase2-cei", _fase2Cei.Nombre, _fase2Cei.Tipo, _fase2Cei.Bytes);
+            await Cliente.SubirPublicoAsync(Token, "fase2-acta", _fase2Acta.Nombre, _fase2Acta.Tipo, _fase2Acta.Bytes);
+            var resultado = await Cliente.CerrarFase2Async(Token, _numeroCei.Trim());
+            var estudio = resultado.Estudio ?? await Cliente.ObtenerPublicoAsync(Token);
+            if (estudio is null)
+            {
+                _error = "La fase 2 no se cerró.";
+                return;
+            }
+
+            MostrarListo(estudio, resultado.Aviso, "Documentos en revisión", "Los documentos de la fase 2 quedaron recibidos y están en revisión. Las novedades llegan por este correo.", "revision");
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo enviar la fase 2.";
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private void MostrarListo(EstudioDto estudio, string? aviso, string titulo, string texto, string modo = "listo")
+    {
+        _token = estudio.Token;
+        _archivos = estudio.Archivos;
+        _aviso = aviso;
+        _tituloListo = titulo;
+        _textoListo = texto;
+        _modo = modo;
+    }
+
+    private bool Fase1Completa() =>
+        _form.Anio is >= 2000 and <= 2100
+        && !string.IsNullOrWhiteSpace(_form.Titulo)
+        && !string.IsNullOrWhiteSpace(_form.Tipo)
+        && !string.IsNullOrWhiteSpace(_form.Institucion)
+        && !string.IsNullOrWhiteSpace(_form.InvestigadorPrincipal)
+        && !string.IsNullOrWhiteSpace(_form.Correo)
+        && (_form.TipoRegistro != "academico" || !string.IsNullOrWhiteSpace(_form.Especialidad))
+        && (_form.TipoRegistro != "clinico" || !string.IsNullOrWhiteSpace(_form.TipoInvestigacion));
+
+    private void Copiar(EstudioDto estudio)
+    {
+        _form.TipoRegistro = estudio.TipoRegistro;
+        _form.Anio = estudio.Anio;
+        _form.Titulo = estudio.Titulo;
+        _form.Especialidad = estudio.Especialidad;
+        _form.Tipo = estudio.Tipo;
+        _form.Acronimo = estudio.Acronimo;
+        _form.TipoInvestigacion = estudio.TipoInvestigacion;
+        _form.InvestigadorPrincipal = estudio.InvestigadorPrincipal;
+        _form.Correo = estudio.Correo;
+        _form.CoInvestigadores = estudio.CoInvestigadores;
+        _form.Coordinador = estudio.Coordinador;
+        _form.Patrocinador = estudio.Patrocinador;
+        _form.Paises = estudio.Paises;
+        _form.Objetivo = estudio.Objetivo;
+        _form.Formatos = estudio.Formatos ?? new FormatosAcademicosDto();
+        if (Instituciones.Contains(estudio.Institucion))
+        {
+            _institucion = estudio.Institucion;
+            _institucionOtra = "";
+        }
+        else if (!string.IsNullOrWhiteSpace(estudio.Institucion))
+        {
+            _institucion = "Otra";
+            _institucionOtra = estudio.Institucion;
+        }
+
+        PrepararListas();
+    }
+
+    private void PrepararListas()
+    {
+        var resumen = _form.Formatos.Resumen;
+        while (resumen.Investigadores.Count < 4)
+        {
+            resumen.Investigadores.Add(new PersonaRolEstudioDto());
+        }
+
+        if (resumen.Presupuesto.Count == 0)
+        {
+            foreach (var item in Partidas)
+            {
+                resumen.Presupuesto.Add(new PartidaPresupuestoEstudioDto { Item = item });
+            }
+        }
+
+        while (resumen.Cronograma.Count < 6)
+        {
+            resumen.Cronograma.Add(new ActividadCronogramaEstudioDto());
+        }
+    }
+
+    private sealed class AdjuntoPendiente(string nombre, string tipo, byte[] bytes)
+    {
+        public string Nombre { get; } = nombre;
+        public string Tipo { get; } = tipo;
+        public byte[] Bytes { get; } = bytes;
+    }
+}

@@ -1,0 +1,101 @@
+@inject TemaInterfaz Tema
+@inject ClienteSesion Sesion
+@inject EstadoSesion Estado
+@implements IDisposable
+
+@if (MostrarBoton)
+{
+    <button type="button" class="boton boton-secundario boton-barra boton-tema" @onclick="Abrir" aria-haspopup="dialog" aria-expanded="@_abierto">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" /><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" /></svg>
+        Tema
+    </button>
+}
+
+@if (_abierto)
+{
+    <div class="modal-fondo modal-temas-fondo" @onclick="Cerrar">
+        <div class="modal-temas modal-temas-compacto" role="dialog" aria-modal="true" aria-labelledby="titulo-temas" @onclick:stopPropagation="true">
+            <h2 id="titulo-temas">Tema</h2>
+            <div class="rejilla-temas rejilla-temas-compacta">
+                @foreach (var opcion in TemaInterfaz.Catalogo)
+                {
+                    var activo = opcion.Codigo == Tema.Actual;
+                    <button type="button"
+                            class="tarjeta-tema @(activo ? "seleccionada" : null)"
+                            title="@opcion.Nombre"
+                            @onclick="() => ElegirAsync(opcion.Codigo)">
+                        <div class="tarjeta-tema-vista" style="background: @opcion.FondoVista">
+                            @if (activo)
+                            {
+                                <span class="tarjeta-tema-check" aria-hidden="true">✓</span>
+                            }
+                            <span class="tarjeta-tema-puntos">
+                                <i style="background:@opcion.Color1"></i>
+                                <i style="background:@opcion.Color2"></i>
+                                <i style="background:@opcion.Color3"></i>
+                            </span>
+                        </div>
+                        <strong>@opcion.Nombre</strong>
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _abierto;
+
+    [Parameter] public bool MostrarBoton { get; set; } = true;
+
+    public void Abrir()
+    {
+        _abierto = true;
+        StateHasChanged();
+    }
+
+    protected override void OnInitialized()
+    {
+        Tema.Cambio += Refrescar;
+        Estado.Cambio += Refrescar;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool primerRender)
+    {
+        if (!primerRender)
+        {
+            return;
+        }
+
+        await Tema.CargarAsync(Estado.Actual.TemaPreferido);
+        StateHasChanged();
+    }
+
+    private void Cerrar() => _abierto = false;
+
+    private async Task ElegirAsync(string codigo)
+    {
+        await Tema.AplicarAsync(codigo);
+        try
+        {
+            await Sesion.GuardarTemaAsync(codigo);
+            if (Estado.Actual.Autenticado)
+            {
+                Estado.Actual.TemaPreferido = codigo;
+            }
+        }
+        catch (HttpRequestException)
+        {
+        }
+
+        _abierto = false;
+    }
+
+    private void Refrescar() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Tema.Cambio -= Refrescar;
+        Estado.Cambio -= Refrescar;
+    }
+}

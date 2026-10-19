@@ -1,0 +1,23 @@
+---
+description: Autenticación, permisos, encabezado de escritura y secretos
+globs: CentroInvestigaciones.API/**/*.cs,CentroInvestigaciones.Client/Services/**/*.cs,CentroInvestigaciones.Domain/**/*.cs
+alwaysApply: false
+---
+
+# Seguridad
+
+Google identifica a la persona. El estado, el área y los roles de la plataforma son otra cuenta: se puede entrar con Google y seguir pendiente de aprobación. En Development el login ofrece entrar con una cuenta ya guardada, sin Google. Ese ingreso responde 404 fuera de Development.
+
+Cada acción de la API lleva un solo `[RequierePermiso("area.modulo.accion")]`. `FiltroPermiso` usa únicamente el primer atributo. Ocultar un botón no autoriza: sin el permiso la API responde 403.
+
+```csharp
+[RequierePermiso("herramientas.estudios.dispositivos")]
+[HttpPut("{id:guid}")]
+public ActionResult<DispositivoDto> Actualizar(Guid id, GuardarDispositivoDto solicitud)
+```
+
+POST, PUT, PATCH y DELETE hacia `/api` exigen el encabezado `X-Centro-Solicitud: 1` (`ClienteSesion.EncabezadoSolicitud`). GET no lo lleva. La respuesta de Google queda exenta.
+
+Secretos de Google, SMTP y contraseñas viven en user-secrets o en configuración del entorno. No los escribas en código, JSON, reglas ni mensajes. No registres contraseñas ni tokens. `datos-locales/` no se commitea.
+
+`administrador-plataforma` recibe todos los permisos. Si una pantalla es solo para admin o jefe, comprueba `nucleo.usuarios.aprobar` y vuelve a comprobarlo en la API.

@@ -1,0 +1,28 @@
+---
+description: Pantallas Blazor, navegación de herramientas y componentes compartidos
+globs: CentroInvestigaciones.Client/**/*.razor
+alwaysApply: false
+---
+
+# Interfaz Blazor
+
+Reutiliza `Boton`, `Modal`, `EncabezadoPagina`, `Alerta`, `TablaDatos`, `CampoFormulario`, `Cargando` y `EstadoVacio` antes de crear otro control.
+
+La página inicial se llama Inicio. El regreso dice `Volver al inicio`. Las secciones de una herramienta van en `barra-herramienta`, junto a ese enlace, y la barra se registra en `MainLayout`. No hay sidebar.
+
+```razor
+<nav class="barra-herramienta" aria-label="Hojas de vida">
+    <a href="/">Volver al inicio</a>
+    <NavLink href="/estudios-clinicos/hojas-de-vida" Match="NavLinkMatch.All">Personas</NavLink>
+</nav>
+```
+
+Si un componente tiene dos `@page` y solo cambia la URL, escucha `LocationChanged` y llama `StateHasChanged`. Si no, Blazor no vuelve a dibujar la vista.
+
+Un `Modal` con `Pie` necesita `ChildContent` explícito. Sin eso el marcado no compila. El diálogo usa esa altura compartida y no se alarga para caber el formulario: lo que sobre, se desplaza dentro del cuerpo. El histórico de la agenda, propia y general, comparte el mismo marcado de filtros y tarjetas. El de registro deja elegir la fecha; a la derecha se listan los registros de esa fecha. Un registro se puede agregar en otra agenda, y solo quien lo creó puede editarlo o eliminarlo.
+
+Un `Boton` con `Cargando` tiene que recibir una tarea que el manejador espere. Si el clic lanza el guardado sin `await`, el texto se queda en Guardando… aunque la operación ya terminó. Al terminar bien, llama `Avisos.Completado()`.
+
+No agregues un `@media` en la página. El ajuste de pantallas chicas vive en `plataforma.css`.
+
+La pantalla puede ocultar una acción. Quien autoriza es la API. Textos de interfaz en español. El aspecto sigue Inicio, Usuarios y Hojas de vida: tarjeta blanca, icono sólido en el título, pastilla clara en las listas y, si hay tabla, cabecera azul clara con acciones en contorno. Los colores salen de las variables de `plataforma.css`. El degradado del encabezado y la onda del fondo viven en el layout; no se repiten en cada pantalla.

@@ -1,0 +1,439 @@
+@page "/estudios-clinicos/hojas-de-vida/{Id:guid}/editor"
+@inject ClienteHojasVida Cliente
+@inject IJSRuntime Js
+@inject Avisos Avisos
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_hoja is null)
+{
+    <EstadoVacio Mensaje="No se encontró la hoja de vida." />
+}
+else
+{
+    <EncabezadoPagina Titulo="@_hoja.NombreCompleto" Descripcion="@($"Versión {_hoja.Version}. Guardar una edición reemplaza los datos y sube la versión. Descargar no la cambia.")" />
+
+    @if (_aviso is not null)
+    {
+        <Alerta Tipo="@_tipoAviso" Mensaje="@_aviso" />
+    }
+
+    <section class="hoja">
+        <h2>1. Datos personales</h2>
+        <div class="fila-campos">
+            <CampoFormulario Id="f-nombre" Etiqueta="Nombres y apellidos" @bind-Valor="_hoja.NombreCompleto" />
+            <CampoFormulario Id="f-titulo" Etiqueta="Título académico" @bind-Valor="_hoja.TituloAcademico" />
+        </div>
+    </section>
+
+    <section class="hoja">
+        <h2>2. Dirección</h2>
+        <CampoFormulario Id="f-inst" Etiqueta="Nombre de institución" @bind-Valor="_hoja.DirInstitucion" />
+        <CampoFormulario Id="f-dir" Etiqueta="Dirección completa" @bind-Valor="_hoja.DirCompleta" />
+        <div class="fila-campos-3">
+            <CampoFormulario Id="f-ciudad" Etiqueta="Ciudad" @bind-Valor="_hoja.DirCiudad" />
+            <CampoFormulario Id="f-estado" Etiqueta="Estado / Departamento" @bind-Valor="_hoja.DirEstado" />
+            <CampoFormulario Id="f-prov" Etiqueta="Provincia" @bind-Valor="_hoja.DirProvincia" />
+        </div>
+        <div class="fila-campos">
+            <CampoFormulario Id="f-pais" Etiqueta="País" @bind-Valor="_hoja.DirPais" />
+            <CampoFormulario Id="f-codigo" Etiqueta="Código postal" @bind-Valor="_hoja.DirCodigo" />
+        </div>
+    </section>
+
+    <section class="hoja">
+        <h2>3. Teléfono</h2>
+        <div class="fila-campos">
+            <CampoFormulario Id="f-tel" Etiqueta="Número" @bind-Valor="_hoja.Telefono" />
+            <CampoFormulario Id="f-ext" Etiqueta="Extensión" @bind-Valor="_hoja.Extension" />
+        </div>
+    </section>
+
+    <section class="hoja">
+        <h2>4. Formación académica</h2>
+        <p>Más reciente primero. Solo títulos otorgados o convalidados.</p>
+        @for (var i = 0; i < _hoja.Formacion.Count; i++)
+        {
+            var item = _hoja.Formacion[i];
+            <div class="item-lista">
+                <div class="item-lista-cabecera">
+                    <strong>Formación @(i + 1)</strong>
+                    <Boton Variante="secundario" AlActivar="() => _hoja.Formacion.Remove(item)">Quitar</Boton>
+                </div>
+                <div class="fila-campos">
+                    <CampoFormulario Id="@($"fa-inst-{i}")" Etiqueta="Institución y ubicación" @bind-Valor="item.Institucion" />
+                    <CampoFormulario Id="@($"fa-tit-{i}")" Etiqueta="Título obtenido" @bind-Valor="item.Titulo" />
+                </div>
+                <div class="fila-campos">
+                    <CampoFormulario Id="@($"fa-anio-{i}")" Etiqueta="Año" @bind-Valor="item.Anio" />
+                    <CampoFormulario Id="@($"fa-area-{i}")" Etiqueta="Área de estudios" @bind-Valor="item.Area" />
+                </div>
+            </div>
+        }
+        <Boton Variante="secundario" AlActivar="AgregarFormacion">Agregar formación</Boton>
+    </section>
+
+    <section class="hoja">
+        <h2>5. Experiencia laboral</h2>
+        @for (var i = 0; i < _hoja.ExperienciaLaboral.Count; i++)
+        {
+            var item = _hoja.ExperienciaLaboral[i];
+            <div class="item-lista">
+                <div class="item-lista-cabecera">
+                    <strong>Experiencia @(i + 1)</strong>
+                    <Boton Variante="secundario" AlActivar="() => _hoja.ExperienciaLaboral.Remove(item)">Quitar</Boton>
+                </div>
+                <div class="fila-campos">
+                    <CampoFormulario Id="@($"el-pos-{i}")" Etiqueta="Posición" @bind-Valor="item.Posicion" />
+                    <CampoFormulario Id="@($"el-inst-{i}")" Etiqueta="Institución" @bind-Valor="item.Institucion" />
+                </div>
+                <div class="fila-campos">
+                    <CampoFormulario Id="@($"el-loc-{i}")" Etiqueta="Ubicación" @bind-Valor="item.Locacion" />
+                    <div class="campo">
+                        <label>Período</label>
+                        <div class="fila-campos">
+                            <input class="entrada" type="date" value="@item.FechaInicio" @onchange="e => item.FechaInicio = Cadena(e)" />
+                            <input class="entrada" type="date" value="@item.FechaFin" @onchange="e => item.FechaFin = Cadena(e)" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        <Boton Variante="secundario" AlActivar="AgregarLaboral">Agregar experiencia</Boton>
+    </section>
+
+    <section class="hoja">
+        <h2>6. Vinculación con FOSCAL</h2>
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="f-mod">Modalidad</label>
+                <select id="f-mod" class="seleccion" @bind="_hoja.VinculacionModalidad">
+                    <option value="">Seleccionar…</option>
+                    <option>Nómina FOSCAL</option>
+                    <option>Staff Médico</option>
+                    <option>Outsourcing</option>
+                    <option>Otra</option>
+                </select>
+            </div>
+            <div class="campo">
+                <label for="f-vinc">Fecha de inicio</label>
+                <input id="f-vinc" class="entrada" type="date" value="@_hoja.VinculacionFechaInicio" @onchange="e => _hoja.VinculacionFechaInicio = Cadena(e)" />
+            </div>
+        </div>
+    </section>
+
+    <section class="hoja">
+        <h2>7. Experiencia en investigación</h2>
+        @for (var i = 0; i < _hoja.ExperienciaInvestigacion.Count; i++)
+        {
+            var item = _hoja.ExperienciaInvestigacion[i];
+            <div class="item-lista">
+                <div class="item-lista-cabecera">
+                    <strong>Estudio @(i + 1)</strong>
+                    <Boton Variante="secundario" AlActivar="() => _hoja.ExperienciaInvestigacion.Remove(item)">Quitar</Boton>
+                </div>
+                <div class="fila-campos">
+                    <CampoFormulario Id="@($"ei-cod-{i}")" Etiqueta="Código del estudio" @bind-Valor="item.Codigo" />
+                    <CampoFormulario Id="@($"ei-ind-{i}")" Etiqueta="Especialidad" @bind-Valor="item.Indicacion" />
+                </div>
+                <div class="fila-campos-3">
+                    <CampoFormulario Id="@($"ei-fase-{i}")" Etiqueta="Fase" @bind-Valor="item.Fase" />
+                    <CampoFormulario Id="@($"ei-papel-{i}")" Etiqueta="Papel" @bind-Valor="item.Papel" />
+                    <CampoFormulario Id="@($"ei-anio-{i}")" Etiqueta="Año" @bind-Valor="item.Anio" />
+                </div>
+            </div>
+        }
+        <Boton Variante="secundario" AlActivar="AgregarInvestigacion">Agregar estudio</Boton>
+    </section>
+
+    <section class="hoja">
+        <h2>8. Entrenamiento ICH/GCP</h2>
+        <div class="campo">
+            <label>¿Cuenta con entrenamiento en buenas prácticas clínicas?</label>
+            <select class="seleccion" @bind="_hoja.GcpSiNo">
+                <option>No</option>
+                <option>Sí</option>
+            </select>
+        </div>
+        @if (_hoja.GcpSiNo == "Sí")
+        {
+            <div class="campo">
+                <label for="f-gcp">Detalle</label>
+                <textarea id="f-gcp" class="entrada area-texto" rows="3" @bind="_hoja.GcpDetalle"></textarea>
+            </div>
+        }
+    </section>
+
+    <section class="hoja">
+        <h2>9. Otros documentos</h2>
+        <div class="campo">
+            <label>¿Licenciaturas, colegiaturas, publicaciones u otros?</label>
+            <select class="seleccion" @bind="_hoja.OtrosSiNo">
+                <option>No</option>
+                <option>Sí</option>
+            </select>
+        </div>
+        @if (_hoja.OtrosSiNo == "Sí")
+        {
+            <div class="campo">
+                <label for="f-otros">Detalle</label>
+                <textarea id="f-otros" class="entrada area-texto" rows="3" @bind="_hoja.OtrosDetalle"></textarea>
+            </div>
+        }
+    </section>
+
+    <section class="hoja">
+        <h2>10. Firma</h2>
+        <p>@( _hoja.TieneFirma ? $"Imagen: {_hoja.FirmaNombre}" : "Sin imagen. Puede dejarse para firma física.")</p>
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="f-firma-fecha">Fecha de firma</label>
+                <input id="f-firma-fecha" class="entrada" type="date" value="@_hoja.FirmaFecha" @onchange="e => _hoja.FirmaFecha = Cadena(e)" />
+            </div>
+            <div class="campo">
+                <span class="firma-mini-titulo">Imagen de firma</span>
+                <label class="firma-mini-caja">
+                    <span aria-hidden="true">✍️</span>
+                    <span>Subir imagen de firma...</span>
+                    <InputFile id="f-firma" OnChange="SubirFirmaAsync" accept="image/png,image/jpeg,image/webp" />
+                </label>
+            </div>
+        </div>
+        @if (_hoja.TieneFirma)
+        {
+            <Boton Variante="peligro" AlActivar="QuitarFirmaAsync">Quitar firma</Boton>
+        }
+    </section>
+
+    <div class="acciones-fila">
+        <Boton Cargando="_guardando" AlActivar="GuardarAsync">Guardar</Boton>
+        <Boton Variante="secundario" AlActivar="AbrirDescarga">Descargar PDF</Boton>
+    </div>
+}
+
+<Modal Visible="_descarga" Titulo="Descargar PDF" AlCerrar="CerrarDescarga">
+    <ChildContent>
+        <div class="campo">
+            <label for="pdf-nota">Nota en el documento</label>
+            <input id="pdf-nota" class="entrada" @bind="_notaPdf" />
+        </div>
+        <div class="campo">
+            <label for="pdf-idioma">Idioma</label>
+            <select id="pdf-idioma" class="seleccion" @bind="_idioma">
+                <option value="es">Español</option>
+                <option value="en">Inglés</option>
+            </select>
+        </div>
+        <p>Soportes que se anexan, en este orden. El archivo no queda guardado.</p>
+        @if (_hoja?.Soportes.Count == 0)
+        {
+            <EstadoVacio Mensaje="Esta persona no tiene soportes." />
+        }
+        else if (_hoja is not null)
+        {
+            @foreach (var soporte in _hoja.Soportes)
+            {
+                <label class="campo">
+                    <input type="checkbox" checked="@_soportesPdf.Contains(soporte.Id)" @onchange="() => AlternarSoporte(soporte.Id)" />
+                    @soporte.Nombre
+                </label>
+            }
+        }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="CerrarDescarga">Cancelar</Boton>
+        <Boton Deshabilitado="_descargando" AlActivar="DescargarAsync">Descargar</Boton>
+    </Pie>
+</Modal>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private HojaVidaDto? _hoja;
+    private bool _cargando = true;
+    private bool _guardando;
+    private bool _descarga;
+    private bool _descargando;
+    private string _notaPdf = "";
+    private string _idioma = "es";
+    private readonly HashSet<Guid> _soportesPdf = [];
+    private string? _aviso;
+    private string _tipoAviso = "informacion";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _cargando = true;
+        _aviso = null;
+        try
+        {
+            _hoja = await Cliente.ObtenerAsync(Id);
+        }
+        catch (HttpRequestException)
+        {
+            _hoja = null;
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void AgregarFormacion() => _hoja?.Formacion.Add(new FormacionHojaDto());
+
+    private static string Cadena(ChangeEventArgs cambio) => cambio.Value?.ToString() ?? "";
+
+    private void AgregarLaboral() => _hoja?.ExperienciaLaboral.Add(new LaboralHojaDto());
+
+    private void AgregarInvestigacion() => _hoja?.ExperienciaInvestigacion.Add(new InvestigacionHojaDto());
+
+    private async Task GuardarAsync()
+    {
+        if (_hoja is null)
+        {
+            return;
+        }
+
+        _guardando = true;
+        _aviso = null;
+        try
+        {
+            var resultado = await Cliente.GuardarAsync(Id, ADto(_hoja));
+            _hoja = resultado.Hoja;
+            _tipoAviso = "informacion";
+            _aviso = resultado.VersionNueva
+                ? $"Guardado. Ahora es la versión {_hoja.Version}."
+                : "No había cambios. La versión sigue igual.";
+            if (resultado.VersionNueva)
+            {
+                Avisos.Completado();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _tipoAviso = "peligro";
+            _aviso = "No se pudo guardar.";
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task SubirFirmaAsync(InputFileChangeEventArgs cambio)
+    {
+        if (_hoja is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await Cliente.SubirFirmaAsync(Id, cambio.File, _hoja.FirmaFecha);
+            _hoja = await Cliente.ObtenerAsync(Id);
+            _tipoAviso = "informacion";
+            _aviso = "Firma actualizada.";
+        }
+        catch (Exception)
+        {
+            _tipoAviso = "peligro";
+            _aviso = "No se pudo subir la firma. Use PNG, JPG o WebP de hasta 20 MB.";
+        }
+    }
+
+    private async Task QuitarFirmaAsync()
+    {
+        try
+        {
+            await Cliente.QuitarFirmaAsync(Id);
+            _hoja = await Cliente.ObtenerAsync(Id);
+        }
+        catch (HttpRequestException)
+        {
+            _tipoAviso = "peligro";
+            _aviso = "No se pudo quitar la firma.";
+        }
+    }
+
+    private void AbrirDescarga()
+    {
+        _soportesPdf.Clear();
+        if (_hoja is not null)
+        {
+            foreach (var soporte in _hoja.Soportes)
+            {
+                _soportesPdf.Add(soporte.Id);
+            }
+        }
+
+        _descarga = true;
+    }
+
+    private void CerrarDescarga() => _descarga = false;
+
+    private void AlternarSoporte(Guid id)
+    {
+        if (!_soportesPdf.Add(id))
+        {
+            _soportesPdf.Remove(id);
+        }
+    }
+
+    private async Task DescargarAsync()
+    {
+        if (_hoja is null)
+        {
+            return;
+        }
+
+        _descargando = true;
+        try
+        {
+            var ids = _hoja.Soportes.Where(item => _soportesPdf.Contains(item.Id)).Select(item => item.Id).ToList();
+            var (bytes, nombre) = await Cliente.DescargarAsync(Id, new SolicitudPdfHojaDto
+            {
+                Idioma = _idioma,
+                Nota = _notaPdf,
+                SoportesIds = ids
+            });
+            await Js.InvokeVoidAsync("centroArchivo.descargar", nombre, Convert.ToBase64String(bytes));
+            _descarga = false;
+        }
+        catch (Exception)
+        {
+            _tipoAviso = "peligro";
+            _aviso = "No se pudo armar el PDF.";
+            _descarga = false;
+        }
+        finally
+        {
+            _descargando = false;
+        }
+    }
+
+    private static GuardarHojaVidaDto ADto(HojaVidaDto hoja) => new()
+    {
+        NombreCompleto = hoja.NombreCompleto,
+        TituloAcademico = hoja.TituloAcademico,
+        DirInstitucion = hoja.DirInstitucion,
+        DirCompleta = hoja.DirCompleta,
+        DirCiudad = hoja.DirCiudad,
+        DirEstado = hoja.DirEstado,
+        DirProvincia = hoja.DirProvincia,
+        DirPais = hoja.DirPais,
+        DirCodigo = hoja.DirCodigo,
+        Telefono = hoja.Telefono,
+        Extension = hoja.Extension,
+        VinculacionModalidad = hoja.VinculacionModalidad,
+        VinculacionFechaInicio = hoja.VinculacionFechaInicio,
+        Formacion = hoja.Formacion,
+        ExperienciaLaboral = hoja.ExperienciaLaboral,
+        ExperienciaInvestigacion = hoja.ExperienciaInvestigacion,
+        GcpSiNo = hoja.GcpSiNo,
+        GcpDetalle = hoja.GcpDetalle,
+        OtrosSiNo = hoja.OtrosSiNo,
+        OtrosDetalle = hoja.OtrosDetalle,
+        FirmaFecha = hoja.FirmaFecha
+    };
+}

@@ -1,0 +1,154 @@
+@page "/udd/protocolos/{Id:guid}"
+@inject ClienteProtocolos Cliente
+@inject IJSRuntime Js
+@inject Avisos Avisos
+
+<PageTitle>Revisión de protocolo · Centro de Investigaciones</PageTitle>
+
+@if (_cargando)
+{
+    <p class="cargando">Cargando el protocolo…</p>
+}
+else if (_modelo is null)
+{
+    <section class="hoja">
+        <h2>Protocolo no encontrado</h2>
+        <p><a href="udd/protocolos">Volver al listado</a></p>
+    </section>
+}
+else
+{
+    <div class="cabecera-herramienta">
+        <div>
+            <h2>@_modelo.Nombre</h2>
+            <p>@CatalogoProtocolo.NombreFormato(_modelo.Formato) · @_modelo.Estado</p>
+        </div>
+        <div class="acciones-fila">
+            <Boton Variante="secundario" Cargando="_generando" TextoCargando="Generando…" AlActivar="PdfAsync">Descargar PDF</Boton>
+            <Boton Variante="secundario" Deshabilitado="@(_modelo.Estado == "Aprobado")" Cargando="_corrigiendo" AlActivar="CorregirAsync">Corregir</Boton>
+            <Boton Deshabilitado="@(_modelo.Estado != "En revisión")" Cargando="_aceptando" AlActivar="AceptarAsync">Aceptar</Boton>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+    @if (!string.IsNullOrEmpty(_aviso))
+    {
+        <Alerta Tipo="informacion" Mensaje="@_aviso" />
+    }
+    <FormularioProtocolo Modelo="_modelo" Revisores="_revisores" Editable="false" Revisar="@(_modelo.Estado != "Aprobado")" FormatoFijo="true" />
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ProtocoloDto? _modelo;
+    private List<RevisorProtocoloDto> _revisores = [];
+    private bool _cargando = true;
+    private bool _corrigiendo;
+    private bool _aceptando;
+    private bool _generando;
+    private string? _error;
+    private string? _aviso;
+
+    protected override async Task OnParametersSetAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            _revisores = (await Cliente.RevisoresAsync()).ToList();
+            _modelo = await Cliente.ObtenerAsync(Id);
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private async Task CorregirAsync()
+    {
+        if (_modelo is null)
+        {
+            return;
+        }
+
+        _corrigiendo = true;
+        _error = null;
+        _aviso = null;
+        try
+        {
+            var resultado = await Cliente.CorregirAsync(Id, _modelo.Comentarios);
+            _modelo = resultado.Protocolo ?? _modelo;
+            _aviso = resultado.Aviso;
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _corrigiendo = false;
+        }
+    }
+
+    private async Task AceptarAsync()
+    {
+        if (_modelo is null)
+        {
+            return;
+        }
+
+        _aceptando = true;
+        _error = null;
+        _aviso = null;
+        try
+        {
+            var resultado = await Cliente.AceptarAsync(Id);
+            _modelo = resultado.Protocolo ?? _modelo;
+            _aviso = resultado.Aviso;
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _aceptando = false;
+        }
+    }
+
+    private async Task PdfAsync()
+    {
+        if (_modelo is null)
+        {
+            return;
+        }
+
+        _generando = true;
+        _error = null;
+        try
+        {
+            var (bytes, nombre) = await Cliente.PdfAsync(Id);
+            await Js.InvokeVoidAsync("centroArchivo.descargar", nombre, Convert.ToBase64String(bytes));
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _generando = false;
+        }
+    }
+}

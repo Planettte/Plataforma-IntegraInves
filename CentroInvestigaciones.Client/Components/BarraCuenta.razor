@@ -1,0 +1,10 @@
+@inject EstadoSesion Estado
+
+<nav class="barra-herramienta" aria-label="Cuenta">
+    <a href="/">Volver al inicio</a>
+    <NavLink href="/perfil">Perfil</NavLink>
+    @foreach (var item in CatalogoNavegacion.AdministracionVisible(Estado.Actual.Permisos))
+    {
+        <NavLink href="@item.Ruta">@item.Titulo</NavLink>
+    }
+</nav>

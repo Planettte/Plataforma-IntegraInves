@@ -1,0 +1,46 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navegacion
+
+<div class="pagina-externa">
+    <FondoFormas />
+    <header class="externo-cabecera">
+        <img src="img/logo-foscal-marca.png" alt="FOSCAL" />
+        <div>
+            <strong>@TituloVisible</strong>
+            <span>@SubtituloVisible</span>
+        </div>
+    </header>
+    <AvisoCompletado />
+    <main class="externo-cuerpo @(EsProtocolos ? "externo-ancho" : null)">
+        @Body
+    </main>
+</div>
+
+@code {
+    [Parameter] public string? Titulo { get; set; }
+
+    [Parameter] public string? Subtitulo { get; set; }
+
+    private bool EsProtocolos =>
+        Ruta.StartsWith("udd/protocolos/externo", StringComparison.OrdinalIgnoreCase);
+
+    private string Ruta => Navegacion.ToBaseRelativePath(Navegacion.Uri).Split('?', '#')[0].Trim('/');
+
+    private string TituloVisible =>
+        !string.IsNullOrWhiteSpace(Titulo) ? Titulo
+        : EsProtocolos ? "Formulario de protocolos"
+        : "Foscal-Registro de estudios";
+
+    private string SubtituloVisible =>
+        !string.IsNullOrWhiteSpace(Subtitulo) ? Subtitulo
+        : EsProtocolos ? "Diseño y desarrollo"
+        : "Comité de Investigaciones";
+
+    protected override void OnInitialized() => Navegacion.LocationChanged += AlCambiar;
+
+    private void AlCambiar(object? origen, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs evento) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Navegacion.LocationChanged -= AlCambiar;
+}

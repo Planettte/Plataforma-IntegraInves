@@ -1,0 +1,323 @@
+@page "/comite/estudios/{Id:guid}"
+@inject ClienteEstudios Cliente
+@inject Avisos Avisos
+
+@if (_cargando)
+{
+    <p class="cargando">Cargando estudio…</p>
+}
+else if (_estudio is null)
+{
+    <EstadoError Titulo="Estudio no encontrado" Mensaje="El registro no está en el listado." />
+}
+else
+{
+    <EncabezadoPagina Titulo="@_estudio.Titulo" Descripcion="@($"{(_estudio.TipoRegistro == "clinico" ? "Clínico" : "Académico")} · {_estudio.Estado}")" />
+
+    @if (_falloCorreo)
+    {
+        <Alerta Tipo="peligro" Mensaje="Error al notificar al usuario." />
+        <div class="acciones-fila">
+            <Boton Deshabilitado="_ocupado" AlActivar="ReenviarAsync">Reenviar notificación</Boton>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_aviso))
+    {
+        <Alerta Tipo="informacion" Mensaje="@_aviso" />
+    }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+
+    <dl class="ficha">
+        <div><dt>Año</dt><dd>@_estudio.Anio</dd></div>
+        <div><dt>Institución</dt><dd>@Texto(_estudio.Institucion)</dd></div>
+        <div><dt>Investigador</dt><dd>@Texto(_estudio.InvestigadorPrincipal)</dd></div>
+        <div><dt>Correo</dt><dd>@Texto(_estudio.Correo)</dd></div>
+        @if (!string.IsNullOrWhiteSpace(_estudio.Especialidad))
+        {
+            <div><dt>Especialidad</dt><dd>@_estudio.Especialidad</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.Tipo))
+        {
+            <div><dt>Tipo</dt><dd>@_estudio.Tipo</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.Acronimo))
+        {
+            <div><dt>Acrónimo</dt><dd>@_estudio.Acronimo</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.TipoInvestigacion))
+        {
+            <div><dt>Tipo de investigación</dt><dd>@_estudio.TipoInvestigacion</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.CoInvestigadores))
+        {
+            <div><dt>Co-investigadores</dt><dd>@_estudio.CoInvestigadores</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.Coordinador))
+        {
+            <div><dt>Coordinador</dt><dd>@_estudio.Coordinador</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.Patrocinador))
+        {
+            <div><dt>Patrocinador</dt><dd>@_estudio.Patrocinador</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.Paises))
+        {
+            <div><dt>Países</dt><dd>@_estudio.Paises</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.Objetivo))
+        {
+            <div><dt>Objetivo</dt><dd>@_estudio.Objetivo</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.NumeroAprobacionCei))
+        {
+            <div><dt>Número CEI</dt><dd>@_estudio.NumeroAprobacionCei</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.MensajeCorreccion))
+        {
+            <div><dt>Última corrección</dt><dd>@_estudio.MensajeCorreccion</dd></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_estudio.MensajeAval))
+        {
+            <div><dt>Mensaje del aval</dt><dd>@_estudio.MensajeAval</dd></div>
+        }
+    </dl>
+
+    <section class="hoja">
+        <h3>Archivos</h3>
+        @if (_estudio.Archivos.Count == 0)
+        {
+            <p>Este registro todavía no tiene archivos.</p>
+        }
+        else
+        {
+            <ul>
+                @foreach (var archivo in _estudio.Archivos)
+                {
+                    <li><a href="@($"api/estudios/{Id}/archivos/{archivo.Id}")" target="_blank">@Etiqueta(archivo)</a></li>
+                }
+            </ul>
+        }
+    </section>
+
+    @if (_estudio.Estado == Recepcion)
+    {
+        <section class="hoja">
+            <h3>Pedir corrección</h3>
+            <div class="campo">
+                <label for="mensaje-correccion">Mensaje para el investigador</label>
+                <textarea id="mensaje-correccion" class="entrada" rows="4" @bind="_mensajeCorreccion" @bind:event="oninput"></textarea>
+            </div>
+            <Boton Deshabilitado="@(_ocupado || string.IsNullOrWhiteSpace(_mensajeCorreccion))" AlActivar="CorregirAsync">Enviar corrección</Boton>
+        </section>
+
+        <section class="hoja">
+            <h3>Validar registro</h3>
+            <p>Se envía el aval, si lo adjuntas, y el enlace para continuar con la fase 2.</p>
+            <div class="campo">
+                <label for="mensaje-aval">Mensaje</label>
+                <textarea id="mensaje-aval" class="entrada" rows="4" @bind="_mensajeAval"></textarea>
+            </div>
+            <ZonaArchivo Texto="Haz clic o arrastra el aval aquí" Ayuda="Opcional. Si lo adjuntas, va en el correo." AlCambiar="ElegirAval" />
+            @if (_aval is not null)
+            {
+                <p class="zona-archivo-nombre">@_aval.Name</p>
+            }
+            <Boton Deshabilitado="_ocupado" AlActivar="AvalarAsync">Validar registro</Boton>
+        </section>
+    }
+    else if (_estudio.Estado == Fase2)
+    {
+        <section class="hoja">
+            <h3>Pedir corrección de la fase 2</h3>
+            <div class="campo">
+                <label for="mensaje-correccion">Mensaje para el investigador</label>
+                <textarea id="mensaje-correccion" class="entrada" rows="4" @bind="_mensajeCorreccion" @bind:event="oninput"></textarea>
+            </div>
+            <Boton Deshabilitado="@(_ocupado || string.IsNullOrWhiteSpace(_mensajeCorreccion))" AlActivar="CorregirAsync">Enviar corrección</Boton>
+        </section>
+
+        <section class="hoja">
+            <h3>Finalizar el proceso</h3>
+            <p>Cierra el registro y avisa que el estudio quedó completado.</p>
+            <Boton Deshabilitado="_ocupado" AlActivar="PedirCierre">Finalizar el proceso</Boton>
+        </section>
+    }
+    else if (_estudio.Estado == Avalado)
+    {
+        <p class="estado-vacio">Falta la documentación de la fase 2.</p>
+    }
+
+    <Confirmacion Visible="_confirmarCierre"
+                  Titulo="Finalizar el proceso"
+                  Mensaje="El registro quedará cerrado y se enviará el aviso de que el estudio fue completado. Esta acción no se puede deshacer."
+                  TextoConfirmar="Finalizar"
+                  AlConfirmar="FinalizarAsync"
+                  AlCancelar="CancelarCierre" />
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private const string Recepcion = "Recepción incompleta de documentos para el comité de investigaciones";
+    private const string Avalado = "Aprobado por el Comité de Investigaciones";
+    private const string Fase2 = "Documentos de la fase 2 en revisión";
+
+    private EstudioDto? _estudio;
+    private bool _cargando = true;
+    private bool _ocupado;
+    private bool _falloCorreo;
+    private bool _confirmarCierre;
+    private string? _error;
+    private string? _aviso;
+    private string? _tipoReenvio;
+    private string _mensajeCorreccion = "";
+    private string _mensajeAval = "";
+    private IBrowserFile? _aval;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _cargando = true;
+        _estudio = null;
+        try
+        {
+            _estudio = await Cliente.ObtenerAsync(Id);
+            if (_estudio?.AvisoRecibidoEnviado == false)
+            {
+                _falloCorreo = true;
+                _tipoReenvio = "recibido";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo abrir el estudio.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void ElegirAval(InputFileChangeEventArgs evento) => _aval = evento.File;
+
+    private async Task CorregirAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_mensajeCorreccion))
+        {
+            _error = "Escribe el mensaje de corrección.";
+            return;
+        }
+
+        await EjecutarAsync(async () =>
+        {
+            var resultado = await Cliente.PedirCorreccionAsync(Id, _mensajeCorreccion.Trim());
+            Aplicar(resultado, "correccion");
+            if (resultado.CorreoEnviado)
+            {
+                _mensajeCorreccion = "";
+            }
+        });
+    }
+
+    private void PedirCierre() => _confirmarCierre = true;
+
+    private void CancelarCierre() => _confirmarCierre = false;
+
+    private async Task FinalizarAsync()
+    {
+        _confirmarCierre = false;
+        await EjecutarAsync(async () =>
+        {
+            var resultado = await Cliente.FinalizarAsync(Id);
+            Aplicar(resultado, "cierre");
+        });
+    }
+
+    private async Task ReenviarAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_tipoReenvio))
+        {
+            return;
+        }
+
+        await EjecutarAsync(async () =>
+        {
+            var resultado = await Cliente.ReenviarAsync(Id, _tipoReenvio);
+            Aplicar(resultado, _tipoReenvio);
+        });
+    }
+
+    private async Task AvalarAsync()
+    {
+        await EjecutarAsync(async () =>
+        {
+            if (_aval is not null)
+            {
+                await Cliente.SubirAvalAsync(Id, _aval);
+            }
+
+            var resultado = await Cliente.EmitirAvalAsync(Id, _mensajeAval.Trim());
+            Aplicar(resultado, "aval");
+            _aval = null;
+        });
+    }
+
+    private async Task EjecutarAsync(Func<Task> accion)
+    {
+        _ocupado = true;
+        _error = null;
+        try
+        {
+            await accion();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo completar la acción.";
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private void Aplicar(ResultadoEstudioDto resultado, string tipo)
+    {
+        if (resultado.Estudio is not null)
+        {
+            _estudio = resultado.Estudio;
+        }
+
+        if (resultado.CorreoEnviado)
+        {
+            _falloCorreo = false;
+            _tipoReenvio = null;
+            _aviso = "Usuario notificado.";
+            Avisos.Completado();
+            return;
+        }
+
+        _aviso = null;
+        _falloCorreo = true;
+        _tipoReenvio = tipo;
+    }
+
+    private static string Texto(string valor) => string.IsNullOrWhiteSpace(valor) ? "—" : valor;
+
+    private static string Etiqueta(ArchivoEstudioDto archivo) => archivo.Clave switch
+    {
+        "pdf-carta-solicitud" => "PDF · Carta solicitud CIF",
+        "pdf-carta-intencion" => "PDF · Carta de intención",
+        "pdf-acuerdo" => "PDF · Acuerdo de confidencialidad",
+        "pdf-registro" => "PDF · Formulario de registro",
+        "pdf-hoja-vida" => "PDF · Hoja de vida del investigador",
+        "pdf-resumen" => "PDF · Resumen analítico",
+        "aval-comite" => "Aval del comité",
+        "fase2-aval" => "Fase 2 · Aval del comité",
+        "fase2-cei" => "Fase 2 · Aprobación del CEI",
+        "fase2-acta" => "Fase 2 · Acta de inicio",
+        "adicional" => archivo.Nombre,
+        _ => archivo.Nombre
+    };
+}

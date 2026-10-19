@@ -1,0 +1,48 @@
+@implements IDisposable
+@inject NavigationManager Navegacion
+
+<nav class="barra-herramienta" aria-label="Plantillas de estudios">
+    <a href="/">Volver al inicio</a>
+    <NavLink href="/estudios-clinicos/plantillas" Match="NavLinkMatch.All">Estudios</NavLink>
+    @if (Id is Guid id)
+    {
+        <NavLink href="@($"/estudios-clinicos/plantillas/{id}")" Match="NavLinkMatch.All">Plantillas</NavLink>
+    }
+    else
+    {
+        <span class="nav-inactiva">Plantillas</span>
+    }
+</nav>
+
+@code {
+    private Guid? Id { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Leer();
+        Navegacion.LocationChanged += AlCambiar;
+    }
+
+    private void AlCambiar(object? sender, LocationChangedEventArgs e)
+    {
+        Leer();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void Leer()
+    {
+        var ruta = Navegacion.ToBaseRelativePath(Navegacion.Uri).Split('?', '#')[0].Trim('/');
+        var partes = ruta.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        Id = partes.Length >= 3
+            && partes[0].Equals("estudios-clinicos", StringComparison.OrdinalIgnoreCase)
+            && partes[1].Equals("plantillas", StringComparison.OrdinalIgnoreCase)
+            && Guid.TryParse(partes[2], out var id)
+            ? id
+            : null;
+    }
+
+    public void Dispose()
+    {
+        Navegacion.LocationChanged -= AlCambiar;
+    }
+}

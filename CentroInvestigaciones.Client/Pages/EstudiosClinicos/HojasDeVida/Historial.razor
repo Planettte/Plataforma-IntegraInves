@@ -1,0 +1,62 @@
+@page "/estudios-clinicos/hojas-de-vida/{Id:guid}/historial"
+@inject ClienteHojasVida Cliente
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_eventos is null)
+{
+    <EstadoVacio Mensaje="No se encontró la hoja de vida." />
+}
+else
+{
+    <EncabezadoPagina Titulo="Historial" Descripcion="Cada edición reemplaza la anterior. Aquí queda quién la hizo, no una copia recuperable." />
+
+    @if (_eventos.Count == 0)
+    {
+        <EstadoVacio Mensaje="Todavía no hay movimientos." />
+    }
+    else
+    {
+        <ul class="lista-personas">
+            @foreach (var evento in _eventos)
+            {
+                <li class="persona-fila">
+                    <span>
+                        <strong>Versión @evento.Version</strong>
+                        <small>@evento.Nota</small>
+                    </span>
+                    <span>
+                        <small>@evento.Usuario</small>
+                        <small>@evento.FechaUtc.ToLocalTime().ToString("g")</small>
+                    </span>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private IReadOnlyList<EventoHojaVidaDto>? _eventos;
+    private bool _cargando = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _cargando = true;
+        try
+        {
+            _eventos = await Cliente.HistorialAsync(Id);
+        }
+        catch (HttpRequestException)
+        {
+            _eventos = null;
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+}

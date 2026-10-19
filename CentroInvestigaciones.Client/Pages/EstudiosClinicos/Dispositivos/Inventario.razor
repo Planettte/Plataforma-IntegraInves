@@ -1,0 +1,580 @@
+@page "/estudios-clinicos/inventario-dispositivos"
+@page "/estudios-clinicos/inventario-dispositivos/inventario"
+@implements IDisposable
+@inject ClienteDispositivos Cliente
+@inject Avisos Avisos
+@inject NavigationManager Navegacion
+@inject EstadoSesion Estado
+
+<div class="cabecera-herramienta">
+    <EncabezadoPagina Titulo="Inventario de dispositivos médicos" Descripcion="Semaforización de mantenimiento, calibración y calificación." />
+    @if (PuedeAdministrar)
+    {
+        <Boton Variante="secundario" AlActivar="AbrirEncargadoAsync">
+            <svg class="icono-linea" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 7 9-7" /></svg>
+            Correo del encargado
+        </Boton>
+    }
+</div>
+
+@if (_error is not null && !_editando)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (!_inventario)
+{
+    <div class="tarjetas-dispositivo">
+        <article class="tarjeta-dispositivo">
+            <h3>Total dispositivos</h3>
+            <strong>@_todos.Count</strong>
+        </article>
+        @foreach (var tipo in Tipos)
+        {
+            var conteo = Conteo(tipo.Clave);
+            <article class="tarjeta-dispositivo">
+                <h3>@tipo.Nombre</h3>
+                <div class="fila-semaforo">
+                    <span class="semaforo semaforo-rojo">@conteo.Rojo</span>
+                    <span class="semaforo semaforo-amarillo">@conteo.Amarillo</span>
+                    <span class="semaforo semaforo-verde">@conteo.Verde</span>
+                    <span class="semaforo semaforo-gris">@conteo.Gris</span>
+                </div>
+            </article>
+        }
+    </div>
+
+    <h3 class="titulo-rojos">Dispositivos en rojo (@Rojos.Count)</h3>
+    @if (Rojos.Count == 0)
+    {
+        <EstadoVacio Mensaje="No hay dispositivos en rojo actualmente." />
+    }
+    else
+    {
+        <ul class="lista-rojos">
+            @foreach (var rojo in PaginaRojos)
+            {
+                <li>
+                    <span><strong>@rojo.Dm</strong> — @rojo.Codigo · @rojo.Lugar</span>
+                    <span class="semaforo semaforo-rojo">@rojo.Tipo</span>
+                </li>
+            }
+        </ul>
+        <div class="paginacion paginacion-dispositivo">
+            <button type="button" class="boton boton-secundario" disabled="@(PaginaRojosSegura <= 0)" @onclick="AnteriorRojos">Anterior</button>
+            <span>Página @(PaginaRojosSegura + 1) de @TotalPaginasRojos · @Rojos.Count en total</span>
+            <button type="button" class="boton boton-secundario" disabled="@(PaginaRojosSegura >= TotalPaginasRojos - 1)" @onclick="SiguienteRojos">Siguiente</button>
+        </div>
+    }
+}
+else
+{
+    <p class="ayuda-inventario">
+        <svg class="icono-linea" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+        Para editar, haga click en el dispositivo que desee editar.
+    </p>
+    <div class="filtros-dispositivo">
+        <label>
+            Ubicación
+            <select class="seleccion" @bind="_ubicacion" @bind:after="ReiniciarPagina">
+                <option value="">Todas las ubicaciones</option>
+                @foreach (var valor in Opciones(item => item.Ubicacion))
+                {
+                    <option value="@valor">@valor</option>
+                }
+            </select>
+        </label>
+        <label>
+            Área
+            <select class="seleccion" @bind="_area" @bind:after="ReiniciarPagina">
+                <option value="">Todas las áreas</option>
+                @foreach (var valor in Opciones(item => item.Area))
+                {
+                    <option value="@valor">@valor</option>
+                }
+            </select>
+        </label>
+        <label>
+            Evento
+            <select class="seleccion" @bind="_tipo" @bind:after="ReiniciarPagina">
+                <option value="">Todos los eventos</option>
+                @foreach (var tipo in Tipos)
+                {
+                    <option value="@tipo.Clave">@tipo.Nombre</option>
+                }
+            </select>
+        </label>
+        <label>
+            Color
+            <select class="seleccion" @bind="_color" @bind:after="ReiniciarPagina">
+                <option value="">Todos los colores</option>
+                <option value="rojo">Rojo</option>
+                <option value="amarillo">Amarillo</option>
+                <option value="verde">Verde</option>
+                <option value="gris">Sin dato</option>
+            </select>
+        </label>
+        <label class="filtro-buscar">
+            Buscar
+            <input class="entrada" @bind="_texto" @bind:event="oninput" @bind:after="ReiniciarPagina" placeholder="DM, código, serie o marca" />
+        </label>
+        <Boton AlActivar="AbrirNuevo">Nuevo dispositivo</Boton>
+    </div>
+
+    @if (Filtrados.Count == 0)
+    {
+        <EstadoVacio Mensaje="Sin resultados." />
+    }
+    else
+    {
+        <div class="tabla-contenedor tabla-usuarios tabla-dispositivos-marco">
+            <table class="tabla-dispositivos">
+                <thead>
+                    <tr>
+                        <th>DM</th>
+                        <th>Marca</th>
+                        <th>Modelo</th>
+                        <th>Riesgo</th>
+                        <th>Serie</th>
+                        <th>Código de activo</th>
+                        <th>Inventario Biomédica</th>
+                        <th>Registro Invima</th>
+                        <th>Periodicidad mantenimiento</th>
+                        <th>Último mantenimiento</th>
+                        <th>Mes calificación</th>
+                        <th>Mes verif. metrológica</th>
+                        <th>Periodicidad calibración</th>
+                        <th>Última calibración</th>
+                        <th>Ubicación</th>
+                        <th>Área</th>
+                        <th>Observaciones</th>
+                        <th>Mantenimiento</th>
+                        <th>Calibración</th>
+                        <th>Calificación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Pagina)
+                    {
+                        <tr class="fila-dispositivo" @onclick="() => AbrirEdicion(item)">
+                            <td>@item.Dm</td>
+                            <td>@item.Marca</td>
+                            <td class="celda-ancha">@item.Modelo</td>
+                            <td>@item.Riesgo</td>
+                            <td>@item.Serie</td>
+                            <td>@item.CodigoActivo</td>
+                            <td>@item.InventarioBiomedica</td>
+                            <td>@item.RegistroInvima</td>
+                            <td>@item.PeriodicidadMantenimiento</td>
+                            <td>@item.UltimoMantenimiento</td>
+                            <td class="celda-ancha">@item.MesCalificacion</td>
+                            <td>@item.MesVerificacionMetrologica</td>
+                            <td>@item.PeriodicidadCalibracion</td>
+                            <td>@item.UltimaCalibracion</td>
+                            <td>@item.Ubicacion</td>
+                            <td class="celda-ancha">@item.Area</td>
+                            <td class="celda-ancha">@item.Observaciones</td>
+                            <td>@Badge(item.Mantenimiento)</td>
+                            <td>@Badge(item.Calibracion)</td>
+                            <td>@Badge(item.Calificacion)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="paginacion paginacion-dispositivo">
+            <button type="button" class="boton boton-secundario" disabled="@(PaginaSegura <= 0)" @onclick="Anterior">Anterior</button>
+            <span>Página @(PaginaSegura + 1) de @TotalPaginas · @Filtrados.Count en total</span>
+            <button type="button" class="boton boton-secundario" disabled="@(PaginaSegura >= TotalPaginas - 1)" @onclick="Siguiente">Siguiente</button>
+        </div>
+    }
+}
+
+<Modal Visible="_editando" Titulo="@(_idEdicion is null ? "Nuevo dispositivo" : "Editar dispositivo")" Clase="modal-ancho" AlCerrar="Cerrar">
+    <ChildContent>
+    @if (_error is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+    <div class="form-dispositivo">
+        @Campo("DM", _form.Dm, valor => _form.Dm = valor)
+        @Campo("Marca", _form.Marca, valor => _form.Marca = valor)
+        @Campo("Modelo", _form.Modelo, valor => _form.Modelo = valor)
+        @Campo("Riesgo", _form.Riesgo, valor => _form.Riesgo = valor)
+        @Campo("Serie", _form.Serie, valor => _form.Serie = valor)
+        @Campo("Código de activo", _form.CodigoActivo, valor => _form.CodigoActivo = valor)
+        @Campo("Inventario Biomédica", _form.InventarioBiomedica, valor => _form.InventarioBiomedica = valor)
+        @Campo("Registro Invima", _form.RegistroInvima, valor => _form.RegistroInvima = valor)
+        @Campo("Periodicidad mantenimiento", _form.PeriodicidadMantenimiento, valor => _form.PeriodicidadMantenimiento = valor, "Anual, Semestral, NO APLICA")
+        @Campo("Último mantenimiento", _form.UltimoMantenimiento, valor => _form.UltimoMantenimiento = valor, "marzo 2026")
+        @Campo("Mes calificación", _form.MesCalificacion, valor => _form.MesCalificacion = valor, "MAR/ABR - SEP/OCT")
+        @Campo("Mes verificación metrológica", _form.MesVerificacionMetrologica, valor => _form.MesVerificacionMetrologica = valor, "Junio")
+        @Campo("Periodicidad calibración", _form.PeriodicidadCalibracion, valor => _form.PeriodicidadCalibracion = valor, "Anual, NO APLICA")
+        @Campo("Última calibración", _form.UltimaCalibracion, valor => _form.UltimaCalibracion = valor, "marzo 2026")
+        @Campo("Ubicación", _form.Ubicacion, valor => _form.Ubicacion = valor)
+        @Campo("Área", _form.Area, valor => _form.Area = valor)
+        <label class="full">
+            Observaciones
+            <textarea class="entrada" rows="3" value="@_form.Observaciones" @oninput="EscribirObservaciones"></textarea>
+        </label>
+    </div>
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="Cerrar">Cancelar</Boton>
+        <Boton Cargando="_guardando" AlActivar="GuardarAsync">Guardar</Boton>
+    </Pie>
+</Modal>
+
+<Modal Visible="_encargadoAbierto" Titulo="Correo del encargado" AlCerrar="CerrarEncargado">
+    <ChildContent>
+        <p>A este correo se envía, una vez por semana, el aviso de dispositivos en rojo.</p>
+        @if (_errorEncargado is not null)
+        {
+            <Alerta Tipo="peligro" Mensaje="@_errorEncargado" />
+        }
+        <label>
+            Correo
+            <input class="entrada" @bind="_correoEncargado" />
+        </label>
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="CerrarEncargado">Cancelar</Boton>
+        <Boton Cargando="_guardandoEncargado" AlActivar="GuardarEncargadoAsync">Guardar</Boton>
+    </Pie>
+</Modal>
+
+@code {
+    private const int TamanoPagina = 8;
+    private const int TamanoRojos = 7;
+
+    private static readonly (string Clave, string Nombre)[] Tipos =
+    [
+        ("mantenimiento", "Mantenimiento"),
+        ("calibracion", "Calibración"),
+        ("calificacion", "Calificación")
+    ];
+
+    private List<DispositivoDto> _todos = [];
+    private GuardarDispositivoDto _form = new();
+    private Guid? _idEdicion;
+    private string _ubicacion = "";
+    private string _area = "";
+    private string _tipo = "";
+    private string _color = "";
+    private string _texto = "";
+    private int _pagina;
+    private int _paginaRojos;
+    private bool _cargando = true;
+    private bool _editando;
+    private bool _guardando;
+    private string? _error;
+
+    private bool _encargadoAbierto;
+    private bool _guardandoEncargado;
+    private bool _inventario;
+    private string _correoEncargado = "";
+    private string? _errorEncargado;
+
+    private bool PuedeAdministrar => Estado.Actual.Permisos.Contains("nucleo.usuarios.aprobar");
+
+    private IReadOnlyList<DispositivoDto> Filtrados => _todos.Where(Coincide).ToList();
+
+    private int TotalPaginas => Math.Max(1, (int)Math.Ceiling(Filtrados.Count / (double)TamanoPagina));
+
+    private int PaginaSegura => Math.Clamp(_pagina, 0, TotalPaginas - 1);
+
+    private IReadOnlyList<DispositivoDto> Pagina =>
+        Filtrados.Skip(PaginaSegura * TamanoPagina).Take(TamanoPagina).ToList();
+
+    private IReadOnlyList<RojoVisible> Rojos =>
+        _todos.SelectMany(item => Tipos
+            .Where(tipo => SemaforoDe(item, tipo.Clave).Estado == "rojo")
+            .Select(tipo => new RojoVisible(item.Dm, item.CodigoActivo, Lugar(item), tipo.Nombre)))
+        .ToList();
+
+    private int TotalPaginasRojos => Math.Max(1, (int)Math.Ceiling(Rojos.Count / (double)TamanoRojos));
+
+    private int PaginaRojosSegura => Math.Clamp(_paginaRojos, 0, TotalPaginasRojos - 1);
+
+    private IReadOnlyList<RojoVisible> PaginaRojos =>
+        Rojos.Skip(PaginaRojosSegura * TamanoRojos).Take(TamanoRojos).ToList();
+
+    protected override void OnInitialized()
+    {
+        LeerVista();
+        Navegacion.LocationChanged += AlCambiarRuta;
+    }
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private void AlCambiarRuta(object? sender, LocationChangedEventArgs e)
+    {
+        LeerVista();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void LeerVista()
+    {
+        var ruta = Navegacion.ToBaseRelativePath(Navegacion.Uri).Split('?', '#')[0].Trim('/');
+        _inventario = ruta.Equals("estudios-clinicos/inventario-dispositivos/inventario", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose() => Navegacion.LocationChanged -= AlCambiarRuta;
+
+    private async Task CargarAsync()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            _todos = (await Cliente.ListarAsync()).ToList();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cargar el inventario.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private bool Coincide(DispositivoDto item)
+    {
+        if (!string.IsNullOrEmpty(_ubicacion) && item.Ubicacion != _ubicacion)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(_area) && item.Area != _area)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_texto))
+        {
+            var campo = $"{item.Dm} {item.CodigoActivo} {item.Serie} {item.Marca}";
+            if (!campo.Contains(_texto.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(_tipo) && !string.IsNullOrEmpty(_color))
+        {
+            return SemaforoDe(item, _tipo).Estado == _color;
+        }
+
+        if (!string.IsNullOrEmpty(_color))
+        {
+            return Tipos.Any(tipo => SemaforoDe(item, tipo.Clave).Estado == _color);
+        }
+
+        return true;
+    }
+
+    private IEnumerable<string> Opciones(Func<DispositivoDto, string> valor) =>
+        _todos.Select(valor).Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(item => item);
+
+    private ConteoSemaforo Conteo(string tipo)
+    {
+        var estados = _todos.Select(item => SemaforoDe(item, tipo).Estado).ToList();
+        return new ConteoSemaforo(
+            estados.Count(item => item == "rojo"),
+            estados.Count(item => item == "amarillo"),
+            estados.Count(item => item == "verde"),
+            estados.Count(item => item == "gris"));
+    }
+
+    private static SemaforoDispositivoDto SemaforoDe(DispositivoDto item, string tipo) => tipo switch
+    {
+        "calibracion" => item.Calibracion,
+        "calificacion" => item.Calificacion,
+        _ => item.Mantenimiento
+    };
+
+    private static string Lugar(DispositivoDto item)
+    {
+        var partes = new[] { item.Ubicacion, item.Area }.Where(parte => !string.IsNullOrWhiteSpace(parte));
+        var texto = string.Join(" / ", partes);
+        return string.IsNullOrWhiteSpace(texto) ? "Sin ubicación" : texto;
+    }
+
+    private void ReiniciarPagina() => _pagina = 0;
+
+    private void Anterior()
+    {
+        if (PaginaSegura > 0)
+        {
+            _pagina = PaginaSegura - 1;
+        }
+    }
+
+    private void Siguiente()
+    {
+        if (PaginaSegura < TotalPaginas - 1)
+        {
+            _pagina = PaginaSegura + 1;
+        }
+    }
+
+    private void AnteriorRojos()
+    {
+        if (PaginaRojosSegura > 0)
+        {
+            _paginaRojos = PaginaRojosSegura - 1;
+        }
+    }
+
+    private void SiguienteRojos()
+    {
+        if (PaginaRojosSegura < TotalPaginasRojos - 1)
+        {
+            _paginaRojos = PaginaRojosSegura + 1;
+        }
+    }
+
+    private void AbrirNuevo()
+    {
+        _idEdicion = null;
+        _form = new GuardarDispositivoDto();
+        _error = null;
+        _editando = true;
+    }
+
+    private void AbrirEdicion(DispositivoDto item)
+    {
+        _idEdicion = item.Id;
+        _form = new GuardarDispositivoDto
+        {
+            Dm = item.Dm,
+            Marca = item.Marca,
+            Modelo = item.Modelo,
+            Riesgo = item.Riesgo,
+            Serie = item.Serie,
+            CodigoActivo = item.CodigoActivo,
+            InventarioBiomedica = item.InventarioBiomedica,
+            RegistroInvima = item.RegistroInvima,
+            PeriodicidadMantenimiento = item.PeriodicidadMantenimiento,
+            UltimoMantenimiento = item.UltimoMantenimiento,
+            MesCalificacion = item.MesCalificacion,
+            MesVerificacionMetrologica = item.MesVerificacionMetrologica,
+            PeriodicidadCalibracion = item.PeriodicidadCalibracion,
+            UltimaCalibracion = item.UltimaCalibracion,
+            Ubicacion = item.Ubicacion,
+            Area = item.Area,
+            Observaciones = item.Observaciones
+        };
+        _error = null;
+        _editando = true;
+    }
+
+    private void Cerrar() => _editando = false;
+
+    private async Task AbrirEncargadoAsync()
+    {
+        _error = null;
+        try
+        {
+            _correoEncargado = await Cliente.LeerEncargadoAsync();
+            _errorEncargado = null;
+            _encargadoAbierto = true;
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo leer el correo del encargado.";
+        }
+    }
+
+    private void CerrarEncargado() => _encargadoAbierto = false;
+
+    private async Task GuardarEncargadoAsync()
+    {
+        var correo = _correoEncargado.Trim();
+        if (!correo.Contains('@') || correo.Contains(' '))
+        {
+            _errorEncargado = "Indica un correo válido.";
+            return;
+        }
+
+        _guardandoEncargado = true;
+        _errorEncargado = null;
+        try
+        {
+            await Cliente.GuardarEncargadoAsync(correo);
+            _encargadoAbierto = false;
+            Avisos.Completado();
+        }
+        catch (HttpRequestException)
+        {
+            _errorEncargado = "No se pudo guardar el correo del encargado.";
+        }
+        finally
+        {
+            _guardandoEncargado = false;
+        }
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Dm) && string.IsNullOrWhiteSpace(_form.CodigoActivo))
+        {
+            _error = "Indica el DM o el código de activo.";
+            return;
+        }
+
+        _guardando = true;
+        _error = null;
+        try
+        {
+            if (_idEdicion is Guid id)
+            {
+                await Cliente.ActualizarAsync(id, _form);
+            }
+            else
+            {
+                await Cliente.CrearAsync(_form);
+            }
+
+            _editando = false;
+            await CargarAsync();
+            Avisos.Completado();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo guardar el dispositivo.";
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private void EscribirObservaciones(ChangeEventArgs cambio) => _form.Observaciones = Texto(cambio);
+
+    private static string Texto(ChangeEventArgs cambio) => cambio.Value?.ToString() ?? "";
+
+    private RenderFragment Badge(SemaforoDispositivoDto semaforo) => @<span class="semaforo @ClaseSemaforo(semaforo.Estado)">@semaforo.Etiqueta</span>;
+
+    private static string ClaseSemaforo(string estado) => estado switch
+    {
+        "rojo" => "semaforo-rojo",
+        "amarillo" => "semaforo-amarillo",
+        "verde" => "semaforo-verde",
+        "no_aplica" => "semaforo-gris",
+        _ => "semaforo-gris"
+    };
+
+    private RenderFragment Campo(string etiqueta, string valor, Action<string> asignar, string? placeholder = null) => @<label>
+        @etiqueta
+        <input class="entrada" placeholder="@placeholder" value="@valor" @oninput="e => asignar(Texto(e))" />
+    </label>;
+
+    private sealed record ConteoSemaforo(int Rojo, int Amarillo, int Verde, int Gris);
+
+    private sealed record RojoVisible(string Dm, string Codigo, string Lugar, string Tipo);
+}

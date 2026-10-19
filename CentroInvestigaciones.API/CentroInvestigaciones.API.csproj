@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>c4e8a1b2-7d3f-4e91-9c56-2a8f0b1e6d47</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
+    <PackageReference Include="QuestPDF" Version="2026.9.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CentroInvestigaciones.Application\CentroInvestigaciones.Application.csproj" />
+    <ProjectReference Include="..\CentroInvestigaciones.Data\CentroInvestigaciones.Data.csproj" />
+    <ProjectReference Include="..\CentroInvestigaciones.Shared\CentroInvestigaciones.Shared.csproj" />
+    <ProjectReference Include="..\CentroInvestigaciones.Client\CentroInvestigaciones.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Recursos\logofoscal.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Recursos\formato-plantilla.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Recursos\como-escribir-un-protocolo.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Recursos\dispositivos-semilla.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Recursos\firmas\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

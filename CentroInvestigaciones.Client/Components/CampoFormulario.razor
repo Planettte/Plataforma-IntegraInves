@@ -1,0 +1,27 @@
+<div class="campo">
+    <label for="@Id">@Etiqueta</label>
+    <input id="@Id" class="entrada" value="@Valor" @oninput="Escribir" autocomplete="@Autocompletado" />
+    @if (!string.IsNullOrWhiteSpace(Mensaje))
+    {
+        <p class="campo-mensaje" role="alert">@Mensaje</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Id { get; set; } = "campo";
+
+    [Parameter] public string Etiqueta { get; set; } = "";
+
+    [Parameter] public string? Valor { get; set; }
+
+    [Parameter] public EventCallback<string?> ValorChanged { get; set; }
+
+    [Parameter] public string? Mensaje { get; set; }
+
+    [Parameter] public string Autocompletado { get; set; } = "off";
+
+    private async Task Escribir(ChangeEventArgs cambio)
+    {
+        await ValorChanged.InvokeAsync(cambio.Value?.ToString());
+    }
+}

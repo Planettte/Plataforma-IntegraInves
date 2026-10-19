@@ -1,0 +1,57 @@
+@page "/administracion/permisos"
+@inject ClienteNucleo Nucleo
+
+<EncabezadoPagina Titulo="Permisos" Descripcion="Cada permiso es una acción sobre un módulo. La API lo comprueba en cada solicitud." />
+
+@if (_error is not null)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+else if (_cargando)
+{
+    <Cargando />
+}
+else
+{
+    <div class="tabla-contenedor">
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var permiso in _permisos)
+                {
+                    <tr>
+                        <td>@permiso.Codigo</td>
+                        <td>@permiso.Nombre</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool _cargando = true;
+    private string? _error;
+    private IReadOnlyList<PermisoDto> _permisos = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _permisos = await Nucleo.ListarPermisosAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No tienes permiso para ver el catálogo o la base no está disponible.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+}

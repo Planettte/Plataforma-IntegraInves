@@ -1,0 +1,146 @@
+@page "/udd/protocolos/externo"
+@page "/udd/protocolos/externo/{Token}"
+@layout LayoutExterno
+@inject ClienteProtocolos Cliente
+@inject NavigationManager Navegacion
+@inject Avisos Avisos
+
+<PageTitle>Formulario de protocolos · Centro de Investigaciones</PageTitle>
+
+@if (_cargando)
+{
+    <p class="cargando">Cargando el formulario…</p>
+}
+else if (_modo == "noencontrado")
+{
+    <section class="hoja">
+        <h2>Enlace no válido</h2>
+        <p>Este enlace no corresponde a un protocolo. Pide uno nuevo a Diseño y desarrollo.</p>
+    </section>
+}
+else if (_modo == "espera")
+{
+    <section class="hoja">
+        <h2>@_modelo.Nombre</h2>
+        <p>@_textoEspera</p>
+        @if (!string.IsNullOrEmpty(_aviso))
+        {
+            <Alerta Tipo="informacion" Mensaje="@_aviso" />
+        }
+    </section>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+    @if (!string.IsNullOrEmpty(_aviso))
+    {
+        <Alerta Tipo="informacion" Mensaje="@_aviso" />
+    }
+    <FormularioProtocolo Modelo="_modelo" Revisores="_revisores" Editable="true" FormatoFijo="@(!string.IsNullOrEmpty(Token))" />
+    <Boton Cargando="_ocupado" AlActivar="EnviarAsync">Enviar</Boton>
+}
+
+@code {
+    [Parameter] public string? Token { get; set; }
+
+    private ProtocoloDto _modelo = new();
+    private List<RevisorProtocoloDto> _revisores = [];
+    private string _modo = "formulario";
+    private bool _cargando = true;
+    private bool _ocupado;
+    private string? _error;
+    private string? _aviso;
+
+    private string _textoEspera => _modelo.Estado == "Aprobado"
+        ? "El protocolo fue aceptado."
+        : "El protocolo está en revisión. Si piden una corrección, el enlace llega a tu correo.";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            _revisores = (await Cliente.RevisoresAsync()).ToList();
+            if (string.IsNullOrEmpty(Token))
+            {
+                _modelo = new ProtocoloDto();
+                _modo = "formulario";
+                return;
+            }
+
+            var protocolo = await Cliente.ObtenerPublicoAsync(Token);
+            if (protocolo is null)
+            {
+                _modo = "noencontrado";
+                return;
+            }
+
+            _modelo = protocolo;
+            _modo = protocolo.Estado == "Corrección" ? "formulario" : "espera";
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+            _modo = "formulario";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private async Task EnviarAsync()
+    {
+        _ocupado = true;
+        _error = null;
+        _aviso = null;
+        try
+        {
+            var solicitud = new GuardarProtocoloDto
+            {
+                Formato = _modelo.Formato,
+                Nombre = _modelo.Nombre,
+                Correo = _modelo.Correo,
+                RevisorId = _modelo.RevisorId,
+                Respuestas = _modelo.Respuestas,
+                Conocimiento = _modelo.Conocimiento,
+                Tecnologico = _modelo.Tecnologico,
+                Capacidad = _modelo.Capacidad,
+                CronogramaFoscal = _modelo.CronogramaFoscal,
+                CronogramaUdes = _modelo.CronogramaUdes,
+                Presupuesto = _modelo.Presupuesto,
+                EticaPoblacion = _modelo.EticaPoblacion,
+                EticaIntervencion = _modelo.EticaIntervencion,
+                EticaInstrumentos = _modelo.EticaInstrumentos
+            };
+            var resultado = string.IsNullOrEmpty(Token)
+                ? await Cliente.CrearAsync(solicitud)
+                : await Cliente.ReenviarAsync(Token, solicitud);
+            _aviso = resultado.Aviso;
+            Avisos.Completado();
+            if (resultado.Protocolo is not null && resultado.Protocolo.Token != Token)
+            {
+                Navegacion.NavigateTo($"udd/protocolos/externo/{resultado.Protocolo.Token}");
+                return;
+            }
+
+            if (resultado.Protocolo is not null)
+            {
+                _modelo = resultado.Protocolo;
+                _modo = "espera";
+            }
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+}

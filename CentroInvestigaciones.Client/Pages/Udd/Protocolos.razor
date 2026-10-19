@@ -1,0 +1,153 @@
+@page "/udd/protocolos"
+@using System.Globalization
+@inject ClienteProtocolos Cliente
+@inject NavigationManager Navegacion
+
+<PageTitle>Formulario de protocolos · Centro de Investigaciones</PageTitle>
+
+<div class="historial-cabecera">
+    <div>
+        <h2 class="titulo-con-icono"><span class="enlace-icono"><IconoHerramienta Nombre="formulario" /></span><span>Formulario de protocolos</span></h2>
+        <p>@TextoTotal</p>
+    </div>
+    <div class="historial-controles">
+        <label class="buscador-estudio">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" /><path d="M16.5 16.5 21 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+            <input class="entrada" placeholder="Buscar..." @bind="_busqueda" @bind:event="oninput" />
+        </label>
+        <div class="historial-controles-fila">
+            <select class="seleccion" @bind="_estado">
+                <option value="">Todos los estados</option>
+                <option value="En revisión">En revisión</option>
+                <option value="Corrección">Corrección</option>
+                <option value="Aprobado">Aprobado</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="historial-enlace">
+    <span>Enlace para un registro nuevo</span>
+    <input class="entrada" readonly value="@EnlaceNuevo" />
+</div>
+
+@if (_cargando && _registros.Count == 0)
+{
+    <p class="cargando">Cargando protocolos…</p>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+else if (_registros.Count == 0)
+{
+    <p class="estado-vacio">Todavía no hay protocolos.</p>
+}
+else if (Visibles.Count == 0)
+{
+    <p class="estado-vacio">Ningún protocolo coincide con la búsqueda.</p>
+}
+else
+{
+    <div class="tabla-contenedor tabla-protocolos-marco">
+        <table class="tabla-protocolos-lista">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Formato</th>
+                    <th>Médico de apoyo</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Visibles)
+                {
+                    <tr class="fila-dispositivo" @onclick="() => Abrir(item.Id)">
+                        <td>@item.Nombre</td>
+                        <td>@item.Correo</td>
+                        <td>@item.Formato</td>
+                        <td>@item.RevisorNombre</td>
+                        <td><span class="estado-estudio @Clase(item.Estado)">@item.Estado</span></td>
+                        <td>@item.CreadoEl.ToLocalTime().ToString("g", Cultura)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private static readonly CultureInfo Cultura = CultureInfo.GetCultureInfo("es-CO");
+
+    private List<ProtocoloListaDto> _registros = [];
+    private bool _cargando = true;
+    private string? _error;
+    private string _busqueda = "";
+    private string _estado = "";
+    private DateTime _cargado = DateTime.Now;
+
+    private string EnlaceNuevo => Navegacion.ToAbsoluteUri("udd/protocolos/externo").ToString();
+
+    private void Abrir(Guid id) => Navegacion.NavigateTo($"udd/protocolos/{id}");
+
+    private string TextoTotal
+    {
+        get
+        {
+            var cantidad = _registros.Count == 1 ? "1 protocolo" : $"{_registros.Count} protocolos";
+            return $"{cantidad} en total · {_cargado.ToString("g", Cultura)}";
+        }
+    }
+
+    private List<ProtocoloListaDto> Visibles => _registros.Where(Coincide).ToList();
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            _registros = (await Cliente.ListarAsync()).ToList();
+            _cargado = DateTime.Now;
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private bool Coincide(ProtocoloListaDto item)
+    {
+        if (!string.IsNullOrEmpty(_estado) && item.Estado != _estado)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_busqueda))
+        {
+            return true;
+        }
+
+        var texto = _busqueda.Trim();
+        return item.Nombre.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || item.Correo.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || item.Formato.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || item.RevisorNombre.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || item.Estado.Contains(texto, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string Clase(string estado) => estado switch
+    {
+        "Aprobado" => "exito",
+        "Corrección" => "aviso",
+        _ => ""
+    };
+}

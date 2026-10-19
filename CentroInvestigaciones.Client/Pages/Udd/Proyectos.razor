@@ -1,0 +1,797 @@
+@page "/udd/proyectos"
+@using System.Globalization
+@inject ClienteProyectos Cliente
+@inject IJSRuntime Js
+@inject Avisos Avisos
+
+<div class="cabecera-herramienta">
+    <EncabezadoPagina Titulo="Seguimiento de proyectos" Descripcion="Tablero de fases, actividades y porcentajes. El PDF descarga el tablero como se ve." />
+</div>
+
+@if (_error is not null)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+
+<div class="controles-proyectos">
+    <label>Responsable
+        <select class="entrada" value="@_responsable" @onchange="CambiarResponsable">
+            <option value="">Selecciona un responsable</option>
+            @foreach (var persona in _responsables)
+            {
+                <option value="@persona.Id">@persona.Nombre</option>
+            }
+        </select>
+    </label>
+    <label>Proyecto
+        <select class="entrada" disabled="@(_responsable == Guid.Empty)" value="@_proyecto" @onchange="CambiarProyecto">
+            <option value="">@(_proyectos.Count == 0 ? "Sin proyectos" : "Selecciona un proyecto")</option>
+            @foreach (var proyecto in _proyectos)
+            {
+                <option value="@proyecto.Id">@proyecto.Nombre</option>
+            }
+        </select>
+    </label>
+    <Boton Variante="secundario" Deshabilitado="_responsable == Guid.Empty" AlActivar="AbrirProyecto">Proyecto</Boton>
+    <Boton Variante="secundario" Deshabilitado="_tablero is null" AlActivar="AbrirFases">Fases</Boton>
+    <Boton Variante="secundario" Deshabilitado="_tablero is null" AlActivar="AbrirActividades">Actividades</Boton>
+    <Boton Variante="secundario" AlActivar="AbrirInvestigador">Investigador</Boton>
+    <Boton Cargando="_generando" TextoCargando="Generando…" Deshabilitado="_tablero is null" AlActivar="PdfAsync">PDF</Boton>
+</div>
+
+@if (_tablero is null)
+{
+    <div class="aviso-vacio">
+        <p>Elige un responsable y un proyecto para ver el tablero.</p>
+    </div>
+}
+else
+{
+    <section class="banner-proyecto">
+        <div class="anillo-proyecto" style="@Anillo(_tablero.Progreso)">
+            <span>@_tablero.Progreso.ToString("0")%</span>
+        </div>
+        <div>
+            <h2>
+                @_tablero.Nombre
+                <Boton Variante="secundario" AlActivar="AbrirTitulo">Editar</Boton>
+            </h2>
+            @if (!string.IsNullOrWhiteSpace(_tablero.Semillero))
+            {
+                <p>@_tablero.Semillero</p>
+            }
+            <p>@_tablero.Progreso.ToString("0.0")% completado del proyecto</p>
+            @if (!string.IsNullOrWhiteSpace(_tablero.ResponsableNombre))
+            {
+                <p>@_tablero.ResponsableNombre</p>
+            }
+        </div>
+    </section>
+
+    @if (_tablero.Fases.Count > 0)
+    {
+        <div class="tarjetas-fases">
+            @foreach (var fase in _tablero.Fases)
+            {
+                <article class="tarjeta-fase">
+                    <div>@fase.Nombre</div>
+                    <strong>@fase.Progreso.ToString("0.0")%</strong>
+                    <div class="barra-fase"><span style="@Barra(fase.Progreso)"></span></div>
+                    @if (fase.Investigadores.Count == 0)
+                    {
+                        <p class="ayuda-campo">Sin investigadores</p>
+                    }
+                    else
+                    {
+                        @foreach (var persona in fase.Investigadores)
+                        {
+                            <div class="chip-investigador"><span>@persona.Nombre</span><span>@persona.Porcentaje.ToString("0")%</span></div>
+                        }
+                    }
+                </article>
+            }
+        </div>
+    }
+
+    @foreach (var fase in _tablero.Fases)
+    {
+        <section class="hoja fase-bloque">
+            <div class="tarjeta-usuarios-cabecera">
+                <h3>@fase.Nombre</h3>
+                <span>@fase.Actividades.Count actividad@(fase.Actividades.Count == 1 ? "" : "es")</span>
+            </div>
+            @if (fase.Actividades.Count == 0)
+            {
+                <p class="ayuda-campo">Sin actividades registradas</p>
+            }
+            else
+            {
+                <div class="tabla-contenedor">
+                    <table class="tabla-retencion tabla-fase">
+                        <thead>
+                            <tr>
+                                <th>Actividad</th>
+                                <th>Inicio</th>
+                                <th>Fecha límite</th>
+                                <th>Peso</th>
+                                <th>Estado</th>
+                                <th>Investigadores</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var actividad in fase.Actividades)
+                            {
+                                var actual = actividad;
+                                <tr>
+                                    <td>@actual.Descripcion</td>
+                                    <td>@Fecha(actual.FechaInicio)</td>
+                                    <td class="celda-fecha">
+                                        @foreach (var anterior in actual.FechasAnteriores)
+                                        {
+                                            <div class="fecha-anterior">@Fecha(anterior)</div>
+                                        }
+                                        <div>@Fecha(actual.FechaLimite)</div>
+                                        <Boton Variante="secundario" AlActivar="() => AbrirProrroga(actual)">+ Prórroga</Boton>
+                                    </td>
+                                    <td>@actual.Peso%</td>
+                                    <td>
+                                        <select class="entrada" value="@actual.Estado" @onchange="e => CambiarEstado(actual, e)">
+                                            @foreach (var estado in _estados)
+                                            {
+                                                <option value="@estado">@estado</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        @if (actual.Asignados.Count == 0)
+                                        {
+                                            <div class="ayuda-campo">Sin asignar</div>
+                                        }
+                                        @foreach (var asignado in actual.Asignados)
+                                        {
+                                            var persona = asignado;
+                                            <div class="asignado-proyecto">
+                                                <span>@persona.Nombre@(persona.Prorrogas > 0 ? $" ({persona.Prorrogas}p)" : "")</span>
+                                                <Boton Variante="peligro" AlActivar="() => QuitarAsync(actual, persona)">Quitar</Boton>
+                                            </div>
+                                        }
+                                        <select class="entrada" @onchange="e => AsignarAsync(actual, e)">
+                                            <option value="">+ Asignar</option>
+                                            @foreach (var investigador in _tablero.Investigadores)
+                                            {
+                                                <option value="@investigador.Id">@investigador.Nombre</option>
+                                            }
+                                        </select>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+}
+
+<Modal Visible="@(_modo == "proyecto")" Titulo="Nuevo proyecto" Clase="modal-ancho" AlCerrar="Cerrar">
+    <ChildContent>
+    <div class="campo">
+        <label>Nombre</label>
+        <input class="entrada" @bind="_nombre" />
+    </div>
+    <div class="campo">
+        <label>Semillero</label>
+        <input class="entrada" @bind="_semillero" />
+    </div>
+    <div class="tarjeta-usuarios-cabecera">
+        <h3>Fases</h3>
+        <Boton Variante="secundario" AlActivar="AgregarFase">Agregar fase</Boton>
+    </div>
+    @foreach (var fase in _fases)
+    {
+        var actual = fase;
+        <div class="fila-editor">
+            <input class="entrada" placeholder="Nombre" @bind="actual.Nombre" />
+            <input class="entrada" type="number" min="1" max="100" value="@actual.Peso" @onchange="e => actual.Peso = Entero(e)" />
+            <Boton Variante="peligro" AlActivar="() => _fases.Remove(actual)">Quitar</Boton>
+        </div>
+    }
+    <p class="total-pesos @(Total(_fases) == 100 ? "ok" : "mal")">Total: @Total(_fases)% (debe ser 100%)</p>
+    @if (_errorModal is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_errorModal" />
+    }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="Cerrar">Cancelar</Boton>
+        <Boton Cargando="_guardando" AlActivar="CrearAsync">Crear</Boton>
+    </Pie>
+</Modal>
+
+<Modal Visible="@(_modo == "titulo")" Titulo="Editar proyecto" AlCerrar="Cerrar">
+    <ChildContent>
+    <div class="campo">
+        <label>Nombre</label>
+        <input class="entrada" @bind="_nombre" />
+    </div>
+    <div class="campo">
+        <label>Semillero</label>
+        <input class="entrada" @bind="_semillero" />
+    </div>
+    @if (_errorModal is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_errorModal" />
+    }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="Cerrar">Cancelar</Boton>
+        <Boton Cargando="_guardando" AlActivar="GuardarTituloAsync">Guardar</Boton>
+    </Pie>
+</Modal>
+
+<Modal Visible="@(_modo == "fases")" Titulo="Fases" Clase="modal-ancho" AlCerrar="Cerrar">
+    <ChildContent>
+    <Boton Variante="secundario" AlActivar="AgregarFase">Agregar fase</Boton>
+    @foreach (var fase in _fases)
+    {
+        var actual = fase;
+        <div class="fila-editor">
+            <input class="entrada" placeholder="Nombre" @bind="actual.Nombre" />
+            <input class="entrada" type="number" min="1" max="100" value="@actual.Peso" @onchange="e => actual.Peso = Entero(e)" />
+            <Boton Variante="peligro" AlActivar="() => _fases.Remove(actual)">Quitar</Boton>
+        </div>
+    }
+    <p class="total-pesos @(Total(_fases) == 100 ? "ok" : "mal")">Total: @Total(_fases)% (debe ser 100%)</p>
+    @if (_errorModal is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_errorModal" />
+    }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="Cerrar">Cancelar</Boton>
+        <Boton Cargando="_guardando" AlActivar="GuardarFasesAsync">Guardar</Boton>
+    </Pie>
+</Modal>
+
+<Modal Visible="@(_modo == "actividades")" Titulo="Actividades" Clase="modal-ancho" AlCerrar="Cerrar">
+    <ChildContent>
+    @foreach (var fase in _fases)
+    {
+        var grupo = fase;
+        <h3>@grupo.Nombre</h3>
+        <Boton Variante="secundario" AlActivar="() => AgregarActividad(grupo.Id)">Agregar actividad</Boton>
+        @foreach (var actividad in _actividades.Where(item => item.FaseId == grupo.Id))
+        {
+            var actual = actividad;
+            <div class="fila-editor">
+                <input class="entrada" placeholder="Descripción" @bind="actual.Descripcion" />
+                <input class="entrada" type="date" value="@actual.FechaInicio" @onchange="e => actual.FechaInicio = Texto(e)" />
+                <input class="entrada" type="date" value="@actual.FechaLimite" @onchange="e => actual.FechaLimite = Texto(e)" />
+                <input class="entrada" type="number" min="1" value="@actual.Peso" @onchange="e => actual.Peso = Entero(e)" />
+                <Boton Variante="peligro" AlActivar="() => _actividades.Remove(actual)">Quitar</Boton>
+            </div>
+        }
+    }
+    @if (_errorModal is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_errorModal" />
+    }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="Cerrar">Cancelar</Boton>
+        <Boton Cargando="_guardando" AlActivar="GuardarActividadesAsync">Guardar</Boton>
+    </Pie>
+</Modal>
+
+<Modal Visible="@(_modo == "investigador")" Titulo="Nuevo investigador" AlCerrar="Cerrar">
+    <ChildContent>
+    <div class="campo">
+        <label>Nombre</label>
+        <input class="entrada" @bind="_nombre" />
+    </div>
+    @if (_errorModal is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_errorModal" />
+    }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="Cerrar">Cancelar</Boton>
+        <Boton Cargando="_guardando" AlActivar="CrearInvestigadorAsync">Guardar</Boton>
+    </Pie>
+</Modal>
+
+<Modal Visible="@(_modo == "prorroga")" Titulo="Nueva prórroga" AlCerrar="Cerrar">
+    <ChildContent>
+    <div class="campo">
+        <label>Nueva fecha límite</label>
+        <input class="entrada" type="date" value="@_prorrogaFecha" @onchange="e => _prorrogaFecha = Texto(e)" />
+    </div>
+    <p class="ayuda-campo">Responsables de la prórroga. Si no eliges ninguno, solo se mueve la fecha.</p>
+    @foreach (var persona in _prorrogaAsignados)
+    {
+        var actual = persona;
+        <label class="asignado-proyecto">
+            <input type="checkbox" checked="@_prorrogaElegidos.Contains(actual.Id)" @onchange="e => ElegirProrroga(actual.Id, e)" />
+            @actual.Nombre
+        </label>
+    }
+    @if (_errorModal is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_errorModal" />
+    }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="Cerrar">Cancelar</Boton>
+        <Boton Cargando="_guardando" AlActivar="GuardarProrrogaAsync">Guardar</Boton>
+    </Pie>
+</Modal>
+
+@code {
+    private static readonly string[] _estados = ["En progreso", "Completado", "Pausado"];
+
+    private readonly List<ResponsableProyectoDto> _responsables = [];
+    private readonly List<ProyectoListaDto> _proyectos = [];
+    private readonly List<BorradorFase> _fases = [];
+    private readonly List<BorradorActividad> _actividades = [];
+    private readonly List<AsignadoTableroDto> _prorrogaAsignados = [];
+    private readonly HashSet<Guid> _prorrogaElegidos = [];
+
+    private TableroProyectoDto? _tablero;
+    private Guid _responsable;
+    private Guid _proyecto;
+    private Guid _prorrogaActividad;
+    private string _modo = "";
+    private string _nombre = "";
+    private string _semillero = "";
+    private string _prorrogaFecha = "";
+    private string? _error;
+    private string? _errorModal;
+    private bool _guardando;
+    private bool _generando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _responsables.AddRange(await Cliente.ResponsablesAsync());
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+    }
+
+    private async Task CambiarResponsable(ChangeEventArgs evento)
+    {
+        _responsable = Guid.TryParse(evento.Value?.ToString(), out var id) ? id : Guid.Empty;
+        _proyecto = Guid.Empty;
+        _tablero = null;
+        _proyectos.Clear();
+        if (_responsable == Guid.Empty)
+        {
+            return;
+        }
+
+        await CargarProyectosAsync(null);
+    }
+
+    private async Task CambiarProyecto(ChangeEventArgs evento)
+    {
+        _proyecto = Guid.TryParse(evento.Value?.ToString(), out var id) ? id : Guid.Empty;
+        await CargarTableroAsync();
+    }
+
+    private async Task CargarProyectosAsync(Guid? seleccionar)
+    {
+        _error = null;
+        try
+        {
+            _proyectos.Clear();
+            _proyectos.AddRange(await Cliente.ListarAsync(_responsable));
+            _proyecto = seleccionar ?? _proyectos.FirstOrDefault()?.Id ?? Guid.Empty;
+            await CargarTableroAsync();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+    }
+
+    private async Task CargarTableroAsync()
+    {
+        if (_proyecto == Guid.Empty)
+        {
+            _tablero = null;
+            return;
+        }
+
+        _error = null;
+        try
+        {
+            _tablero = await Cliente.ObtenerAsync(_proyecto);
+            if (_tablero is null)
+            {
+                _error = "No se encontró el proyecto.";
+            }
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+    }
+
+    private void AbrirProyecto()
+    {
+        _modo = "proyecto";
+        _nombre = "";
+        _semillero = "";
+        _errorModal = null;
+        _fases.Clear();
+        _fases.Add(new BorradorFase());
+    }
+
+    private void AbrirTitulo()
+    {
+        if (_tablero is null)
+        {
+            return;
+        }
+
+        _modo = "titulo";
+        _nombre = _tablero.Nombre;
+        _semillero = _tablero.Semillero;
+        _errorModal = null;
+    }
+
+    private void AbrirFases()
+    {
+        if (_tablero is null)
+        {
+            return;
+        }
+
+        _modo = "fases";
+        _errorModal = null;
+        _fases.Clear();
+        _fases.AddRange(_tablero.Fases.Select(item => new BorradorFase { Id = item.Id, Nombre = item.Nombre, Peso = item.Peso }));
+    }
+
+    private void AbrirActividades()
+    {
+        if (_tablero is null)
+        {
+            return;
+        }
+
+        _modo = "actividades";
+        _errorModal = null;
+        _fases.Clear();
+        _fases.AddRange(_tablero.Fases.Select(item => new BorradorFase { Id = item.Id, Nombre = item.Nombre, Peso = item.Peso }));
+        _actividades.Clear();
+        _actividades.AddRange(_tablero.Fases.SelectMany(fase => fase.Actividades.Select(item => new BorradorActividad
+        {
+            Id = item.Id,
+            FaseId = fase.Id,
+            Descripcion = item.Descripcion,
+            FechaInicio = item.FechaInicio,
+            FechaLimite = item.FechaLimite,
+            Peso = item.Peso
+        })));
+    }
+
+    private void AbrirInvestigador()
+    {
+        _modo = "investigador";
+        _nombre = "";
+        _errorModal = null;
+    }
+
+    private void AbrirProrroga(TableroActividadDto actividad)
+    {
+        _modo = "prorroga";
+        _prorrogaActividad = actividad.Id;
+        _prorrogaFecha = "";
+        _errorModal = null;
+        _prorrogaAsignados.Clear();
+        _prorrogaAsignados.AddRange(actividad.Asignados);
+        _prorrogaElegidos.Clear();
+    }
+
+    private void AgregarFase() => _fases.Add(new BorradorFase());
+
+    private void AgregarActividad(Guid faseId) =>
+        _actividades.Add(new BorradorActividad { FaseId = faseId, Peso = 1 });
+
+    private void Cerrar()
+    {
+        _modo = "";
+        _errorModal = null;
+    }
+
+    private async Task CrearAsync()
+    {
+        _guardando = true;
+        _errorModal = null;
+        try
+        {
+            var creado = await Cliente.CrearAsync(new CrearProyectoDto
+            {
+                ResponsableId = _responsable,
+                Nombre = _nombre,
+                Semillero = _semillero,
+                Fases = _fases.Select(item => new FaseEdicionDto { Nombre = item.Nombre, Peso = item.Peso }).ToList()
+            });
+            Cerrar();
+            await CargarProyectosAsync(creado.Id);
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _errorModal = excepcion.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task GuardarTituloAsync()
+    {
+        if (_tablero is null)
+        {
+            return;
+        }
+
+        _guardando = true;
+        _errorModal = null;
+        try
+        {
+            await Cliente.ActualizarAsync(_tablero.Id, new ActualizarProyectoDto { Nombre = _nombre, Semillero = _semillero });
+            Cerrar();
+            await CargarProyectosAsync(_tablero.Id);
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _errorModal = excepcion.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task GuardarFasesAsync()
+    {
+        if (_tablero is null)
+        {
+            return;
+        }
+
+        _guardando = true;
+        _errorModal = null;
+        try
+        {
+            await Cliente.GuardarFasesAsync(_tablero.Id, _fases.Select(item => new FaseEdicionDto { Id = item.Id, Nombre = item.Nombre, Peso = item.Peso }).ToList());
+            Cerrar();
+            await CargarTableroAsync();
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _errorModal = excepcion.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task GuardarActividadesAsync()
+    {
+        if (_tablero is null)
+        {
+            return;
+        }
+
+        _guardando = true;
+        _errorModal = null;
+        try
+        {
+            await Cliente.GuardarActividadesAsync(_tablero.Id, _actividades.Select(item => new ActividadEdicionDto
+            {
+                Id = item.Id,
+                FaseId = item.FaseId,
+                Descripcion = item.Descripcion,
+                FechaInicio = item.FechaInicio,
+                FechaLimite = item.FechaLimite,
+                Peso = item.Peso
+            }).ToList());
+            Cerrar();
+            await CargarTableroAsync();
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _errorModal = excepcion.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task CrearInvestigadorAsync()
+    {
+        _guardando = true;
+        _errorModal = null;
+        try
+        {
+            await Cliente.CrearInvestigadorAsync(_nombre);
+            Cerrar();
+            if (_tablero is not null)
+            {
+                await CargarTableroAsync();
+            }
+
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _errorModal = excepcion.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task CambiarEstado(TableroActividadDto actividad, ChangeEventArgs evento)
+    {
+        _error = null;
+        try
+        {
+            await Cliente.CambiarEstadoAsync(actividad.Id, evento.Value?.ToString() ?? "");
+            await CargarTableroAsync();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+    }
+
+    private async Task AsignarAsync(TableroActividadDto actividad, ChangeEventArgs evento)
+    {
+        if (!Guid.TryParse(evento.Value?.ToString(), out var investigador) || investigador == Guid.Empty)
+        {
+            return;
+        }
+
+        _error = null;
+        try
+        {
+            await Cliente.AsignarAsync(actividad.Id, investigador);
+            await CargarTableroAsync();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+    }
+
+    private async Task QuitarAsync(TableroActividadDto actividad, AsignadoTableroDto persona)
+    {
+        _error = null;
+        try
+        {
+            await Cliente.QuitarAsignacionAsync(actividad.Id, persona.Id);
+            await CargarTableroAsync();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+    }
+
+    private async Task GuardarProrrogaAsync()
+    {
+        _guardando = true;
+        _errorModal = null;
+        try
+        {
+            await Cliente.ProrrogarAsync(_prorrogaActividad, new ProrrogaDto
+            {
+                Fecha = _prorrogaFecha,
+                Investigadores = _prorrogaElegidos.ToList()
+            });
+            Cerrar();
+            await CargarTableroAsync();
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _errorModal = excepcion.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task PdfAsync()
+    {
+        if (_tablero is null)
+        {
+            return;
+        }
+
+        _generando = true;
+        _error = null;
+        try
+        {
+            var (bytes, nombre) = await Cliente.PdfAsync(_tablero.Id);
+            await Js.InvokeVoidAsync("centroArchivo.descargar", nombre, Convert.ToBase64String(bytes));
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _generando = false;
+        }
+    }
+
+    private void ElegirProrroga(Guid id, ChangeEventArgs evento)
+    {
+        if (evento.Value is bool marcado && marcado)
+        {
+            _prorrogaElegidos.Add(id);
+        }
+        else
+        {
+            _prorrogaElegidos.Remove(id);
+        }
+    }
+
+    private static int Total(IEnumerable<BorradorFase> fases) => fases.Sum(item => item.Peso);
+
+    private static int Entero(ChangeEventArgs evento) =>
+        int.TryParse(evento.Value?.ToString(), out var valor) ? valor : 0;
+
+    private static string Texto(ChangeEventArgs evento) => evento.Value?.ToString() ?? "";
+
+    private static string Fecha(string valor) =>
+        DateOnly.TryParse(valor, out var fecha) ? fecha.ToString("dd/MM/yyyy") : valor;
+
+    private static string Anillo(decimal progreso) =>
+        $"--avance: {progreso.ToString("0.##", CultureInfo.InvariantCulture)}";
+
+    private static string Barra(decimal progreso) =>
+        $"width: {Math.Clamp(progreso, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%";
+
+    private sealed class BorradorFase
+    {
+        public Guid Id { get; set; }
+
+        public string Nombre { get; set; } = "";
+
+        public int Peso { get; set; }
+    }
+
+    private sealed class BorradorActividad
+    {
+        public Guid Id { get; set; }
+
+        public Guid FaseId { get; set; }
+
+        public string Descripcion { get; set; } = "";
+
+        public string FechaInicio { get; set; } = "";
+
+        public string FechaLimite { get; set; } = "";
+
+        public int Peso { get; set; } = 1;
+    }
+}

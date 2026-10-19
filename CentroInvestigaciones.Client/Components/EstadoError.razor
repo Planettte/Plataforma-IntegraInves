@@ -1,0 +1,10 @@
+<div class="estado-error" role="alert">
+    <h2>@Titulo</h2>
+    <p>@Mensaje</p>
+</div>
+
+@code {
+    [Parameter] public string Titulo { get; set; } = "Ocurrió un problema";
+
+    [Parameter] public string Mensaje { get; set; } = "No se pudo completar la acción.";
+}

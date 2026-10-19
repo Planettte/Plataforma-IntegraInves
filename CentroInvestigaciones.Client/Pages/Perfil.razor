@@ -1,0 +1,218 @@
+@page "/perfil"
+@inject ClienteSesion Sesion
+@inject ClienteNucleo Nucleo
+@inject EstadoSesion Estado
+@inject Avisos Avisos
+
+<EncabezadoPagina Titulo="Perfil" Descripcion="Puedes actualizar tus datos institucionales. El correo lo aporta Google." />
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (!Estado.Actual.Autenticado)
+{
+    <EstadoVacio Mensaje="No hay una sesión activa." />
+    <a class="boton boton-primario" href="/login">Ingresar</a>
+}
+else
+{
+    @if (_error is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+    else if (_guardado)
+    {
+        <Alerta Tipo="exito" Mensaje="Los datos quedaron actualizados." />
+    }
+
+    <div class="hoja">
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="nombre">Nombre</label>
+                <input id="nombre" class="entrada" @bind="_nombre" autocomplete="given-name" />
+            </div>
+            <div class="campo">
+                <label for="segundo-nombre">Segundo nombre</label>
+                <input id="segundo-nombre" class="entrada" @bind="_segundoNombre" autocomplete="additional-name" />
+            </div>
+        </div>
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="primer-apellido">Primer apellido</label>
+                <input id="primer-apellido" class="entrada" @bind="_primerApellido" autocomplete="family-name" />
+            </div>
+            <div class="campo">
+                <label for="segundo-apellido">Segundo apellido</label>
+                <input id="segundo-apellido" class="entrada" @bind="_segundoApellido" />
+            </div>
+        </div>
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="contacto">Número de contacto</label>
+                <input id="contacto" class="entrada" @bind="_contacto" autocomplete="tel" />
+            </div>
+            <div class="campo">
+                <label for="extension">Extensión</label>
+                <input id="extension" class="entrada" @bind="_extension" />
+            </div>
+        </div>
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="cargo">Cargo</label>
+                <input id="cargo" class="entrada" value="@EtiquetaCargo(_cargo)" disabled />
+            </div>
+            <div class="campo">
+                <label for="area">Área</label>
+                <input id="area" class="entrada" value="@(string.IsNullOrWhiteSpace(Estado.Actual.AreaInteres) ? "La asigna un administrador o jefe" : Estado.Actual.AreaInteres)" disabled />
+            </div>
+        </div>
+        <Boton Deshabilitado="@(!FormularioValido)" Cargando="_guardando" AlActivar="Guardar">Guardar</Boton>
+    </div>
+
+    <dl class="ficha">
+        <div>
+            <dt>Correo</dt>
+            <dd>@Valor(Estado.Actual.CorreoElectronico)</dd>
+        </div>
+    </dl>
+}
+
+@code {
+    private bool _cargando = true;
+    private bool _guardando;
+    private bool _guardado;
+    private string? _error;
+    private string _nombre = "";
+    private string _segundoNombre = "";
+    private string _primerApellido = "";
+    private string _segundoApellido = "";
+    private string _contacto = "";
+    private string _extension = "";
+    private string _cargo = "";
+
+    private bool FormularioValido =>
+        !string.IsNullOrWhiteSpace(_nombre)
+        && !string.IsNullOrWhiteSpace(_primerApellido)
+        && !string.IsNullOrWhiteSpace(_contacto);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (!Estado.Actual.Autenticado)
+            {
+                await Estado.CargarAsync(Sesion);
+            }
+
+            Llenar();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudieron cargar los datos del perfil.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void Llenar()
+    {
+        var actual = Estado.Actual;
+        var nombres = actual.Nombres;
+        var apellidos = actual.Apellidos;
+        if (string.IsNullOrWhiteSpace(nombres) && string.IsNullOrWhiteSpace(apellidos) && !string.IsNullOrWhiteSpace(actual.Nombre))
+        {
+            var completo = actual.Nombre.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (completo.Length >= 4)
+            {
+                nombres = string.Join(' ', completo[..^2]);
+                apellidos = string.Join(' ', completo[^2..]);
+            }
+            else if (completo.Length == 3)
+            {
+                nombres = completo[0];
+                apellidos = string.Join(' ', completo[1..]);
+            }
+            else if (completo.Length == 2)
+            {
+                nombres = completo[0];
+                apellidos = completo[1];
+            }
+            else
+            {
+                nombres = actual.Nombre;
+            }
+        }
+
+        (_nombre, _segundoNombre) = Partir(nombres);
+        (_primerApellido, _segundoApellido) = Partir(apellidos);
+
+        _contacto = actual.NumeroContacto ?? "";
+        _extension = actual.Extension ?? "";
+        _cargo = actual.Cargo ?? "";
+    }
+
+    private async Task Guardar()
+    {
+        if (!FormularioValido)
+        {
+            return;
+        }
+
+        _guardando = true;
+        _guardado = false;
+        _error = null;
+        try
+        {
+            await Nucleo.ActualizarMiPerfilAsync(new CompletarIngresoDto
+            {
+                Nombres = Juntar(_nombre, _segundoNombre),
+                Apellidos = Juntar(_primerApellido, _segundoApellido),
+                NumeroContacto = _contacto.Trim(),
+                Extension = _extension.Trim(),
+                Cargo = _cargo.Trim()
+            });
+            await Estado.CargarAsync(Sesion);
+            Llenar();
+            _guardado = true;
+            Avisos.Completado();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudieron guardar los datos.";
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private static (string Primero, string Resto) Partir(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            return ("", "");
+        }
+
+        var partes = texto.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length == 1 ? (partes[0], "") : (partes[0], partes[1]);
+    }
+
+    private static string Juntar(string primero, string resto) =>
+        string.Join(' ', new[] { primero, resto }.Where(parte => !string.IsNullOrWhiteSpace(parte))).Trim();
+
+    private static string EtiquetaCargo(string cargo) => cargo switch
+    {
+        "coordinacion" => "Coordinación",
+        "medico" => "Médico",
+        "apoyo" => "Apoyo",
+        "farmacia" => "Farmacia",
+        "udd" => "UDD",
+        "usuario" => "Usuario",
+        _ => string.IsNullOrWhiteSpace(cargo) ? "Sin indicar" : cargo
+    };
+
+    private static string Valor(string? texto) => string.IsNullOrWhiteSpace(texto) ? "Sin dato" : texto;
+}

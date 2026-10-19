@@ -1,0 +1,15 @@
+<a class="enlace-herramienta" href="@Elemento.Ruta" target="_blank" rel="noopener noreferrer">
+    <span class="enlace-icono"><IconoHerramienta Nombre="@Elemento.Icono" /></span>
+    <span class="enlace-texto">
+        <strong>@Elemento.Titulo</strong>
+        @if (!string.IsNullOrWhiteSpace(Elemento.Subtitulo))
+        {
+            <small>@Elemento.Subtitulo</small>
+        }
+    </span>
+    <span class="enlace-flecha" aria-hidden="true">›</span>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public ElementoNavegacion Elemento { get; set; } = default!;
+}

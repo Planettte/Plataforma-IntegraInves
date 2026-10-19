@@ -1,0 +1,19 @@
+<div class="pasos-estudio" aria-label="Progreso del registro">
+    <div class="paso @(FaseDos ? "hecho" : "activo")">
+        <span class="paso-circulo">1</span>
+        <span class="paso-texto">Registro<br />del estudio</span>
+    </div>
+    <span class="paso-linea @(FaseDos ? "hecho" : null)"></span>
+    <div class="paso @(FaseDos ? "activo" : null)">
+        <span class="paso-circulo">2</span>
+        <span class="paso-texto">Documentos<br />de aval</span>
+    </div>
+</div>
+<div class="tipo-estudio">
+    <span>@(Clinico ? "🔬 Estudio clínico" : "📚 Estudio académico")</span>
+</div>
+
+@code {
+    [Parameter] public bool FaseDos { get; set; }
+    [Parameter] public bool Clinico { get; set; }
+}

@@ -1,0 +1,196 @@
+@page "/estudios-clinicos/retencion-documental"
+@inject ClienteRetencion Cliente
+@inject IJSRuntime Js
+@inject Avisos Avisos
+
+<div class="cabecera-herramienta">
+    <EncabezadoPagina Titulo="Tabla de retención documental" Descripcion="Formato Estudios Clínicos · 006-MF-V5. Diligencia los datos y descarga el PDF." />
+    <Boton Cargando="_generando" TextoCargando="Generando…" AlActivar="GenerarAsync">Generar PDF</Boton>
+</div>
+
+@if (_error is not null)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+
+<section class="hoja hoja-farmacia">
+    <h2>Datos generales</h2>
+    <div class="fila-campos">
+        <div class="campo">
+            <label for="ret-estudio">Número del estudio</label>
+            <p class="ayuda-campo">Registrar el nombre y/o el título del estudio.</p>
+            <input id="ret-estudio" class="entrada" @bind="_datos.NumeroEstudio" />
+        </div>
+        <div class="campo">
+            <label for="ret-patrocinador">Patrocinador</label>
+            <p class="ayuda-campo">Registrar el nombre del patrocinador del estudio clínico.</p>
+            <input id="ret-patrocinador" class="entrada" @bind="_datos.Patrocinador" />
+        </div>
+    </div>
+    <div class="campo">
+        <label>Contenido</label>
+        <p class="ayuda-campo">Registrar el contenido de cada una de las cajas que contienen los documentos del protocolo.</p>
+        <div class="contenido-retencion">
+            @for (var i = 0; i < _datos.Contenido.Count; i++)
+            {
+                var indice = i;
+                <input class="entrada" value="@_datos.Contenido[indice]" @oninput="e => EscribirContenido(indice, e)" />
+            }
+        </div>
+    </div>
+</section>
+
+<section class="hoja">
+    <div class="tarjeta-usuarios-cabecera">
+        <div>
+            <h2>Direcciones</h2>
+            <p>Fecha en que el archivo de gestión pasa al archivo histórico, y la dirección completa de esa ubicación.</p>
+        </div>
+        <Boton Variante="secundario" AlActivar="AgregarDireccion">Agregar fila</Boton>
+    </div>
+    <div class="tabla-contenedor">
+        <table class="tabla-retencion">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Dirección</th>
+                    <th>Fecha</th>
+                    <th>Dirección</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var fila in _datos.Direcciones)
+                {
+                    var actual = fila;
+                    <tr>
+                        <td><input class="entrada" type="date" value="@actual.Fecha1" @onchange="e => actual.Fecha1 = Fecha(e)" /></td>
+                        <td><input class="entrada" @bind="actual.Direccion1" /></td>
+                        <td><input class="entrada" type="date" value="@actual.Fecha2" @onchange="e => actual.Fecha2 = Fecha(e)" /></td>
+                        <td><input class="entrada" @bind="actual.Direccion2" /></td>
+                        <td><Boton Variante="peligro" AlActivar="() => QuitarDireccion(actual)">Quitar</Boton></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="hoja">
+    <div class="tarjeta-usuarios-cabecera">
+        <div>
+            <h2>Préstamos de documentos</h2>
+            <p>Quién recibe el documento, el motivo y la devolución. La firma puede ser una imagen.</p>
+        </div>
+        <Boton Variante="secundario" AlActivar="AgregarPrestamo">Agregar fila</Boton>
+    </div>
+    <div class="tabla-contenedor tabla-farmacia-marco">
+        <table class="tabla-retencion tabla-retencion-prestamos">
+            <thead>
+                <tr>
+                    <th>Fecha préstamo</th>
+                    <th>Nombre del documento</th>
+                    <th>Motivo</th>
+                    <th>Nombre del solicitante</th>
+                    <th>Firma del solicitante</th>
+                    <th>Fecha de devolución</th>
+                    <th>Firma de quien recibe</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var fila in _datos.Prestamos)
+                {
+                    var actual = fila;
+                    <tr>
+                        <td><input class="entrada" type="date" value="@actual.FechaPrestamo" @onchange="e => actual.FechaPrestamo = Fecha(e)" /></td>
+                        <td><input class="entrada" @bind="actual.NombreDocumento" /></td>
+                        <td><input class="entrada" @bind="actual.Motivo" /></td>
+                        <td><input class="entrada" @bind="actual.NombreSolicitante" /></td>
+                        <td>
+                            <InputFile OnChange="e => LeerFirma(e, valor => actual.FirmaSolicitante = valor)" accept="image/png,image/jpeg,image/webp" />
+                            @if (!string.IsNullOrEmpty(actual.FirmaSolicitante))
+                            {
+                                <img class="firma-retencion" src="@Vista(actual.FirmaSolicitante)" alt="" />
+                            }
+                        </td>
+                        <td><input class="entrada" type="date" value="@actual.FechaDevolucion" @onchange="e => actual.FechaDevolucion = Fecha(e)" /></td>
+                        <td>
+                            <InputFile OnChange="e => LeerFirma(e, valor => actual.FirmaRecibe = valor)" accept="image/png,image/jpeg,image/webp" />
+                            @if (!string.IsNullOrEmpty(actual.FirmaRecibe))
+                            {
+                                <img class="firma-retencion" src="@Vista(actual.FirmaRecibe)" alt="" />
+                            }
+                        </td>
+                        <td><Boton Variante="peligro" AlActivar="() => QuitarPrestamo(actual)">Quitar</Boton></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@code {
+    private readonly RetencionDocumentalDto _datos = new()
+    {
+        Contenido = ["", "", "", ""],
+        Direcciones = [new(), new(), new(), new()],
+        Prestamos = [new(), new(), new(), new(), new(), new(), new()]
+    };
+
+    private bool _generando;
+    private string? _error;
+
+    private void EscribirContenido(int indice, ChangeEventArgs evento) =>
+        _datos.Contenido[indice] = evento.Value?.ToString() ?? "";
+
+    private void AgregarDireccion() => _datos.Direcciones.Add(new DireccionRetencionDto());
+
+    private void QuitarDireccion(DireccionRetencionDto fila) => _datos.Direcciones.Remove(fila);
+
+    private void AgregarPrestamo() => _datos.Prestamos.Add(new PrestamoRetencionDto());
+
+    private void QuitarPrestamo(PrestamoRetencionDto fila) => _datos.Prestamos.Remove(fila);
+
+    private async Task LeerFirma(InputFileChangeEventArgs cambio, Action<string> asignar)
+    {
+        _error = null;
+        try
+        {
+            var imagen = await cambio.File.RequestImageFileAsync("image/jpeg", 400, 140);
+            await using var lectura = imagen.OpenReadStream(1024 * 1024);
+            using var memoria = new MemoryStream();
+            await lectura.CopyToAsync(memoria);
+            asignar(Convert.ToBase64String(memoria.ToArray()));
+        }
+        catch (Exception)
+        {
+            _error = "No se pudo leer la firma. Use PNG, JPG o WebP.";
+        }
+    }
+
+    private async Task GenerarAsync()
+    {
+        _generando = true;
+        _error = null;
+        try
+        {
+            var (bytes, nombre) = await Cliente.PdfAsync(_datos);
+            await Js.InvokeVoidAsync("centroArchivo.descargar", nombre, Convert.ToBase64String(bytes));
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _generando = false;
+        }
+    }
+
+    private static string Fecha(ChangeEventArgs evento) => evento.Value?.ToString() ?? "";
+
+    private static string Vista(string valor) =>
+        valor.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ? valor : $"data:image/jpeg;base64,{valor}";
+}

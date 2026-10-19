@@ -1,0 +1,26 @@
+@if (_mostrar)
+{
+    <img class="firma-formato" src="@Src" alt="" @onerror="Ocultar" />
+}
+
+@code {
+    [Parameter] public string? Src { get; set; }
+
+    private bool _mostrar;
+    private string? _anterior;
+
+    protected override void OnParametersSet()
+    {
+        if (Src == _anterior)
+        {
+            return;
+        }
+
+        _anterior = Src;
+        _mostrar = !string.IsNullOrWhiteSpace(Src)
+            && Src.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
+            && Src.Contains(',', StringComparison.Ordinal);
+    }
+
+    private void Ocultar() => _mostrar = false;
+}

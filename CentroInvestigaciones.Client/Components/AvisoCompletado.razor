@@ -1,0 +1,15 @@
+@implements IDisposable
+@inject Avisos Avisos
+
+@if (Avisos.Visible)
+{
+    <div class="aviso-completado" role="status"><span aria-hidden="true">✓</span> Completado</div>
+}
+
+@code {
+    protected override void OnInitialized() => Avisos.Cambio += Refrescar;
+
+    private void Refrescar() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Avisos.Cambio -= Refrescar;
+}

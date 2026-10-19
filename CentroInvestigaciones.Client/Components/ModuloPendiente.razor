@@ -1,0 +1,10 @@
+<EncabezadoPagina Titulo="@Titulo" Descripcion="@Descripcion" />
+<EstadoVacio Mensaje="@Mensaje" />
+
+@code {
+    [Parameter] public string Titulo { get; set; } = "";
+
+    [Parameter] public string? Descripcion { get; set; }
+
+    [Parameter] public string Mensaje { get; set; } = CatalogoNavegacion.MensajeHerramienta;
+}

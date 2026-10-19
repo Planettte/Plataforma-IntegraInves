@@ -1,0 +1,1102 @@
+@page "/estudios-clinicos/agenda"
+@page "/udd/agenda"
+@implements IDisposable
+@inject ClienteAgenda Cliente
+@inject EstadoSesion Estado
+@inject Avisos Avisos
+@inject NavigationManager Navegacion
+
+<div class="cabecera-herramienta">
+    <EncabezadoPagina Titulo="@Titulo" Descripcion="@Descripcion" />
+    @if (!_cargando && _dia is not null && !_udd && _dia.PuedeAsignar)
+    {
+        <div class="agenda-vistas">
+            <button type="button" class="@(!_compartida ? "activo" : null)" @onclick="() => FijarVista(false)">Agenda propia</button>
+            <button type="button" class="@(_compartida ? "activo" : null)" @onclick="() => FijarVista(true)">Agenda médicos</button>
+            <a href="agenda/general" target="_blank" rel="noopener noreferrer">Agenda general ↗</a>
+        </div>
+    }
+</div>
+
+@if (_error is not null && !_editando)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_dia is null)
+{
+    <EstadoVacio Mensaje="No se pudo mostrar la agenda." />
+}
+else
+{
+    <div class="agenda-lienzo">
+        <aside class="agenda-lateral">
+            <section class="hoja agenda-mini">
+                <div class="agenda-mini-nav">
+                    <button type="button" @onclick="MesAnterior" aria-label="Mes anterior">‹</button>
+                    <strong>@_fecha.ToString("MMMM yyyy", Cultura)</strong>
+                    <button type="button" @onclick="MesSiguiente" aria-label="Mes siguiente">›</button>
+                </div>
+                <div class="agenda-mes">
+                    @foreach (var nombre in new[] { "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom" })
+                    {
+                        <span class="agenda-mes-nombre">@nombre</span>
+                    }
+                    @foreach (var celda in CeldasMes())
+                    {
+                        if (celda is null)
+                        {
+                            <span></span>
+                        }
+                        else
+                        {
+                            var iso = celda.Value.ToString("yyyy-MM-dd");
+                            var festivo = _dia.FestivosMes.Contains(iso);
+                            <button type="button" class="agenda-dia @(celda == _fecha ? "activo" : null) @(festivo ? "festivo" : null)" disabled="@festivo" @onclick="() => IrDia(celda.Value)">
+                                <span>@celda.Value.Day</span>
+                                <span class="agenda-marcas">
+                                    @if (_dia.DiasOcupados.Contains(iso))
+                                    {
+                                        <span class="marca-ok" title="Hay registros">✓</span>
+                                    }
+                                    @if (_dia.DiasMonitorias.Contains(iso))
+                                    {
+                                        <svg class="marca-alarma" viewBox="0 0 24 24" aria-label="Hay monitoría"><path d="M6 16V10.5a6 6 0 1 1 12 0V16l1.5 2h-15z" /><path d="M10 19.5a2 2 0 0 0 4 0" /></svg>
+                                    }
+                                </span>
+                            </button>
+                        }
+                    }
+                </div>
+                <button type="button" class="boton boton-secundario" @onclick="IrHoy">Hoy</button>
+            </section>
+            <section class="hoja">
+                <h3>Registros importantes</h3>
+                @if (_dia.Importantes.Count == 0)
+                {
+                    <p class="texto-suave">No tienes registros marcados como importantes.</p>
+                }
+                else
+                {
+                    <ul class="lista-importantes">
+                        @foreach (var item in _dia.Importantes)
+                        {
+                            <li>
+                                <button type="button" @onclick="() => IrDiaTexto(item.Fecha)">
+                                    <strong>@PresentacionAgenda.Titulo(item)</strong>
+                                    <small>@item.Fecha · @item.HoraInicio</small>
+                                </button>
+                                @if (item.PuedeEditar)
+                                {
+                                    <Boton Variante="secundario" AlActivar="() => QuitarImportanteAsync(item.Id)">Listo</Boton>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        </aside>
+
+        <section class="hoja agenda-dia-card">
+            <header class="agenda-dia-cabecera">
+                <div>
+                    <h3>@_fecha.ToString("dddd d 'de' MMMM", Cultura)</h3>
+                    <p>@_dia.Persona</p>
+                </div>
+                <div class="agenda-dia-acciones">
+                    @if (!_dia.Festivo)
+                    {
+                        <Boton AlActivar="@(() => AbrirNueva("08:00"))">+ Agregar registro</Boton>
+                    }
+                    @if (_udd || !_dia.PuedeAsignar)
+                    {
+                        @if (!_udd)
+                        {
+                            <a class="boton boton-secundario" href="agenda/general" target="_blank" rel="noopener noreferrer">Agenda general ↗</a>
+                        }
+                    }
+                    <Boton Variante="secundario" AlActivar="AbrirHistorico">Histórico</Boton>
+                </div>
+            </header>
+            @if (_dia.Festivo)
+            {
+                <EstadoVacio Mensaje="Este día es festivo." />
+            }
+            else
+            {
+                <div class="agenda-dia-cuerpo @(_dia.PuedeMonitorias ? "con-monitorias" : null)">
+                    @if (_compartida)
+                    {
+                        <AgendaRejilla Citas="_dia.Citas" AlEditar="AbrirEdicion" />
+                    }
+                    else
+                    {
+                        <div class="agenda-lista-marco">
+                            @if (_dia.Citas.Count == 0)
+                            {
+                                <p class="texto-suave">No hay registros para este día.</p>
+                            }
+                            else
+                            {
+                                <div class="agenda-lista">
+                                    @foreach (var cita in _dia.Citas)
+                                    {
+                                        var color = PresentacionAgenda.Color(cita.Persona);
+                                        <button type="button" class="agenda-registro @(cita.Importante ? "importante" : null)" style="border-left-color: @color; background: color-mix(in srgb, @color 18%, var(--superficie))" @onclick="() => AbrirEdicion(cita)">
+                                            <strong>@cita.Persona</strong>
+                                            <span>@cita.HoraInicio – @cita.HoraFin</span>
+                                            <span>@(cita.Importante ? "★ " : "")@PresentacionAgenda.Titulo(cita)</span>
+                                            <small>@EtiquetaAgenda(cita.Agenda) · @(cita.Tipo == "otros" ? "Otros" : "Registro")</small>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (_dia.PuedeMonitorias)
+                    {
+                        <aside class="agenda-monitorias">
+                            <h3>Monitorías (@_dia.Monitorias.Count/2)</h3>
+                            @if (_dia.Monitorias.Count == 0)
+                            {
+                                <p class="texto-suave">Sin monitorías este día.</p>
+                            }
+                            else
+                            {
+                                <ul class="lista-monitorias">
+                                    @foreach (var monitoria in _dia.Monitorias)
+                                    {
+                                        <li>
+                                            <span><strong>@monitoria.Descripcion</strong></span>
+                                            <Boton Variante="peligro" AlActivar="() => QuitarMonitoriaAsync(monitoria.Id)">Quitar</Boton>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            @if (_dia.Monitorias.Count < 2)
+                            {
+                                <div class="agenda-monitoria-nueva">
+                                    <input class="entrada" @bind="_monitoria" placeholder="Nombre" />
+                                    <Boton AlActivar="AgregarMonitoriaAsync">Agregar</Boton>
+                                </div>
+                            }
+                        </aside>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+}
+
+<Modal Visible="_editando" Titulo="@(_idCita is null ? "Nuevo registro" : _puedeEditar ? "Editar registro" : "Registro")" Clase="modal-registro" AlCerrar="Cerrar">
+    <ChildContent>
+        @if (_error is not null)
+        {
+            <Alerta Tipo="peligro" Mensaje="@_error" />
+        }
+        <div class="registro-partido">
+        <div class="registro-formulario">
+        <fieldset disabled="@(!_puedeEditar)">
+        @if (!_puedeEditar && _idCita is not null)
+        {
+            <p class="texto-suave">Solo puede editarlo quien lo creó@(string.IsNullOrWhiteSpace(_creadoPor) ? "." : $": {_creadoPor}.")</p>
+        }
+        @if (!_udd)
+        {
+            <div class="campo">
+                <label for="tipo-cita">Tipo</label>
+                <select id="tipo-cita" class="seleccion" @bind="_tipo">
+                    <option value="citas">Registro</option>
+                    <option value="otros">Otros</option>
+                </select>
+            </div>
+        }
+        @if (_idCita is null && !_udd && _dia?.PuedeAsignar == true)
+        {
+            <div class="campo">
+                <span>Asignar a</span>
+                <div class="lista-asignar">
+                    @foreach (var grupo in GruposAsignar)
+                    {
+                        <p class="asignar-grupo">@grupo.Titulo</p>
+                        @foreach (var persona in _dia.Personas.Where(item => item.Agenda == grupo.Agenda))
+                        {
+                            var clave = Clave(persona);
+                            <label class="opcion-check">
+                                <input type="checkbox" checked="@_elegidas.Contains(clave)" @onchange="evento => AlternarPersona(clave, evento)" />
+                                @persona.Nombre
+                            </label>
+                        }
+                    }
+                </div>
+            </div>
+        }
+        else if (_udd && _dia?.PuedeAsignar == true)
+        {
+            <div class="campo">
+                <label for="persona-cita">Persona</label>
+                <select id="persona-cita" class="seleccion" @bind="_personaModal" @bind:after="CargarPanelAsync">
+                    <option value="">Selecciona una persona</option>
+                    @foreach (var persona in _dia.Personas)
+                    {
+                        <option value="@Clave(persona)">@persona.Nombre</option>
+                    }
+                </select>
+            </div>
+        }
+        <div class="campo">
+            <label for="fecha-registro">Fecha</label>
+            <input id="fecha-registro" class="entrada" type="date" @bind="_fechaFormulario" @bind:after="CargarPanelAsync" />
+        </div>
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="hora-inicio">Hora de inicio</label>
+                <select id="hora-inicio" class="seleccion" @bind="_horaInicio">
+                    @foreach (var hora in Horas)
+                    {
+                        <option value="@hora">@hora</option>
+                    }
+                </select>
+            </div>
+            <div class="campo">
+                <label for="hora-fin">Hora de fin</label>
+                <select id="hora-fin" class="seleccion" @bind="_horaFin">
+                    @foreach (var hora in HorasFin)
+                    {
+                        <option value="@hora">@hora</option>
+                    }
+                </select>
+            </div>
+        </div>
+        @foreach (var campo in CamposActivos)
+        {
+            <div class="campo">
+                <label>@campo.Etiqueta</label>
+                @if (campo.Opciones.Length > 0)
+                {
+                    <select class="seleccion" value="@Valor(campo.Clave)" @onchange="e => Escribir(campo.Clave, e)">
+                        <option value=""></option>
+                        @foreach (var opcion in campo.Opciones)
+                        {
+                            <option value="@opcion">@opcion</option>
+                        }
+                    </select>
+                }
+                else if (campo.Largo)
+                {
+                    <textarea class="entrada area-texto" rows="3" value="@Valor(campo.Clave)" @oninput="e => Escribir(campo.Clave, e)"></textarea>
+                }
+                else
+                {
+                    <input class="entrada" value="@Valor(campo.Clave)" @oninput="e => Escribir(campo.Clave, e)" />
+                }
+            </div>
+        }
+        @if (RequiereLaboratorio)
+        {
+            <div class="aviso-laboratorios">
+                <p>Antes de guardar, abre el archivo o márcalo como revisado.</p>
+                <a class="boton boton-secundario" href="@EnlaceLaboratorios" target="_blank" rel="noopener noreferrer" @onclick="MarcarLaboratorio">Abrir archivo de laboratorios</a>
+                <button type="button" class="boton boton-secundario" @onclick="MarcarLaboratorio">✓ Archivo revisado</button>
+                @if (_laboratorioRevisado)
+                {
+                    <p>Ya puedes guardar.</p>
+                }
+            </div>
+        }
+        <label class="agenda-importante">
+            <input type="checkbox" @bind="_importante" />
+            Marcar como importante
+        </label>
+        @if (_idCita is null)
+        {
+            <label class="agenda-importante">
+                <input type="checkbox" @bind="_recurrente" />
+                Registro múltiple
+            </label>
+            @if (_recurrente)
+            {
+                <div class="fila-campos-3">
+                    <div class="campo">
+                        <label for="repite-cada">Repetir cada</label>
+                        <input id="repite-cada" class="entrada" type="number" min="1" @bind="_intervalo" />
+                    </div>
+                    <div class="campo">
+                        <label for="repite-unidad">Unidad</label>
+                        <select id="repite-unidad" class="seleccion" @bind="_unidad">
+                            <option value="dias">Día(s)</option>
+                            <option value="meses">Mes(es)</option>
+                        </select>
+                    </div>
+                    <div class="campo">
+                        <label for="repite-veces">Número de veces</label>
+                        <input id="repite-veces" class="entrada" type="number" min="1" max="24" @bind="_veces" />
+                    </div>
+                </div>
+            }
+        }
+        </fieldset>
+        </div>
+        <aside class="registro-dia">
+            <h3>Registros del día</h3>
+            @if (_cargandoPanel)
+            {
+                <p class="texto-suave">Cargando registros…</p>
+            }
+            else if (FaltaPersona)
+            {
+                <p class="texto-suave">Elige personas en Asignar a.</p>
+            }
+            else if (RegistrosPanel.Count == 0)
+            {
+                <p class="texto-suave">No hay registros de las personas seleccionadas.</p>
+            }
+            else
+            {
+                @foreach (var grupo in RegistrosPanel.GroupBy(cita => cita.Persona).OrderBy(grupo => grupo.Key))
+                {
+                    <p class="registro-persona">@grupo.Key</p>
+                    @foreach (var cita in grupo.OrderBy(cita => cita.HoraInicio))
+                    {
+                        <article class="registro-dia-item">
+                            <strong>@cita.HoraInicio–@cita.HoraFin</strong>
+                            <span>@PresentacionAgenda.Titulo(cita)</span>
+                            <small>@(cita.Tipo == "otros" ? "Otros" : "Registro")</small>
+                        </article>
+                    }
+                }
+                <p class="registro-dia-pie">Mostrando @RegistrosPanel.Count registros para @_fechaFormulario.ToString("d/MM/yyyy")</p>
+            }
+        </aside>
+        </div>
+    </ChildContent>
+    <Pie>
+        @if (_puedeEditar && _idCita is not null)
+        {
+            <Boton Variante="peligro" Deshabilitado="_guardando" Cargando="_eliminando" TextoCargando="Eliminando…" AlActivar="EliminarAsync">Eliminar</Boton>
+        }
+        @if (_puedeEditar)
+        {
+            <Boton Variante="secundario" AlActivar="Cancelar">Cancelar</Boton>
+            <Boton Deshabilitado="@(_eliminando || !PuedeGuardar)" Cargando="_guardando" AlActivar="GuardarAsync">Guardar</Boton>
+        }
+        else
+        {
+            <Boton Variante="secundario" AlActivar="Cerrar">Cerrar</Boton>
+        }
+    </Pie>
+</Modal>
+
+<Modal Visible="_historico" Titulo="Histórico" Clase="modal-ancho" AlCerrar="CerrarHistorico">
+    <ChildContent>
+        @if (!_udd && _dia?.PuedeAsignar == true)
+        {
+            <div class="historico-vistas">
+                <button type="button" class="@(_buscarCompartida ? null : "activo")" @onclick="() => BuscarAmbitoAsync(false)">Mi agenda</button>
+                <button type="button" class="@(_buscarCompartida ? "activo" : null)" @onclick="() => BuscarAmbitoAsync(true)">Agenda médicos</button>
+            </div>
+        }
+        <div class="historico-filtros">
+            <p>Filtros</p>
+        <div class="fila-campos-3">
+            <div class="campo">
+                <label for="buscar-texto">Palabra clave</label>
+                <input id="buscar-texto" class="entrada" @bind="_buscarTexto" @bind:event="oninput" @bind:after="BuscarAsync" placeholder="Estudio, paciente o persona" />
+            </div>
+            <div class="campo">
+                <label for="buscar-desde">Desde</label>
+                <input id="buscar-desde" class="entrada" type="date" @bind="_buscarDesde" @bind:after="BuscarAsync" />
+            </div>
+            <div class="campo">
+                <label for="buscar-hasta">Hasta</label>
+                <input id="buscar-hasta" class="entrada" type="date" @bind="_buscarHasta" @bind:after="BuscarAsync" />
+            </div>
+        </div>
+        </div>
+        @if (_errorHistorico is not null)
+        {
+            <Alerta Tipo="peligro" Mensaje="@_errorHistorico" />
+        }
+        else if (SinCriterio)
+        {
+            <p class="texto-suave">Escribe algo o elige un rango de fechas para buscar.</p>
+        }
+        else if (_buscando)
+        {
+            <Cargando />
+        }
+        else if (_resultados.Count == 0)
+        {
+            <p class="texto-suave">Sin resultados.</p>
+        }
+        else
+        {
+            <p class="historico-cuenta">Histórico (@_resultados.Count)</p>
+            <ul class="lista-historico">
+                @foreach (var item in _resultados)
+                {
+                    <li class="historico-item">
+                        <div>
+                            <strong>@PresentacionAgenda.Titulo(item)</strong>
+                            <small>@item.Fecha · @item.HoraInicio–@item.HoraFin</small>
+                            <small>@item.Persona · @(item.Tipo == "otros" ? "Otros" : "Registro")</small>
+                        </div>
+                        <Boton Variante="secundario" AlActivar="() => IrResultadoAsync(item)">@(item.PuedeEditar ? "Editar" : "Ver")</Boton>
+                    </li>
+                }
+            </ul>
+        }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="CerrarHistorico">Cerrar</Boton>
+    </Pie>
+</Modal>
+
+@code {
+    private static readonly string[] Horas =
+    [
+        "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+        "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+        "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"
+    ];
+
+    private static readonly string[] HorasFin =
+    [
+        "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00",
+        "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00",
+        "14:30", "15:00", "15:30", "16:00", "16:30", "17:00"
+    ];
+
+    private static readonly CampoAgenda[] CamposCitas =
+    [
+        new("estudio", "Estudio", false),
+        new("nombrePaciente", "Nombre paciente", false),
+        new("codigoPaciente", "Código paciente", false),
+        new("visita", "Visita", false),
+        new("asistencia", "Asistencia", false, "Sí", "No", "Pendiente"),
+        new("laboratorios", "Laboratorios", false, "Central", "Local", "Central/Local", "N/A"),
+        new("observaciones", "Observaciones", true),
+        new("telefono", "Teléfono", false)
+    ];
+
+    private static readonly CampoAgenda[] CamposOtros =
+    [
+        new("actividad", "Actividad", false),
+        new("nombrePaciente", "Nombre paciente", false),
+        new("codigoPaciente", "Código paciente", false),
+        new("observaciones", "Observaciones", true),
+        new("asistencia", "Asistencia", false, "Sí", "No", "Pendiente")
+    ];
+
+    private static readonly CampoAgenda[] CamposUdd =
+    [
+        new("actividad", "Actividad", false),
+        new("participante", "Participante", false),
+        new("modalidad", "Modalidad", false, "Presencial", "Virtual"),
+        new("sede", "Sede", false),
+        new("observaciones", "Observaciones", true)
+    ];
+
+    private static readonly System.Globalization.CultureInfo Cultura = System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+
+    private DiaAgendaDto? _dia;
+    private DateOnly _fecha = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _fechaFormulario = DateOnly.FromDateTime(DateTime.Today);
+    private bool _udd;
+    private bool _compartida;
+    private bool _cargando = true;
+    private bool _editando;
+    private bool _borrador;
+    private bool _guardando;
+    private bool _eliminando;
+    private bool _importante;
+    private bool _puedeEditar = true;
+    private string _creadoPor = "";
+    private bool _historico;
+    private bool _buscarCompartida;
+    private bool _buscando;
+    private Guid? _idCita;
+    private string _tipo = "citas";
+    private string _horaInicio = "08:00";
+    private string _horaFin = "08:30";
+    private string _personaModal = "";
+    private string _monitoria = "";
+    private string _unidad = "dias";
+    private int _intervalo = 2;
+    private int _veces = 2;
+    private bool _recurrente;
+    private bool _laboratorioRevisado;
+    private readonly HashSet<string> _elegidas = new(StringComparer.OrdinalIgnoreCase);
+    private List<CitaAgendaDto> _citasPanel = [];
+    private bool _cargandoPanel;
+    private string _buscarTexto = "";
+    private DateTime? _buscarDesde;
+    private DateTime? _buscarHasta;
+    private string? _error;
+    private string? _errorHistorico;
+    private List<CitaAgendaDto> _resultados = [];
+    private Dictionary<string, string> _campos = new(StringComparer.OrdinalIgnoreCase);
+
+    private const string EnlaceLaboratorios = "https://docs.google.com/spreadsheets/d/1e-_MAQv-EZu3v3DA7QxJu3w8jqReuIaxeo6FzP6dxxo/edit?gid=0#gid=0";
+
+    private static readonly (string Agenda, string Titulo)[] GruposAsignar =
+    [
+        ("medicos", "Agenda médicos"),
+        ("coordinacion", "Agenda coordinación")
+    ];
+
+    private bool RequiereLaboratorio => !_udd && _tipo == "citas";
+
+    private bool PuedeGuardar => !RequiereLaboratorio || _laboratorioRevisado;
+
+    private bool SinCriterio =>
+        string.IsNullOrWhiteSpace(_buscarTexto) && _buscarDesde is null && _buscarHasta is null;
+
+    private string Titulo => _udd ? "Agenda UDD" : "Agenda de investigaciones";
+
+    private string Descripcion => _udd
+        ? "Actividades de diseño y desarrollo."
+        : "Citas de médicos y coordinación, de 6:00 a 17:00.";
+
+    private string Ambito => _udd ? "udd" : "estudios";
+
+    private IReadOnlyList<CampoAgenda> CamposActivos =>
+        _udd ? CamposUdd : _tipo == "otros" ? CamposOtros : CamposCitas;
+
+    protected override void OnInitialized()
+    {
+        LeerRuta();
+        Navegacion.LocationChanged += AlCambiarRuta;
+    }
+
+    private bool SoloConsulta =>
+        !_udd
+        && Estado.Actual.Cargo is "apoyo" or "farmacia"
+        && !Estado.Actual.Permisos.Contains("nucleo.usuarios.modificar");
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SoloConsulta)
+        {
+            Navegacion.NavigateTo("/agenda/general", replace: true);
+            return;
+        }
+
+        await CargarAsync();
+    }
+
+    private void AlCambiarRuta(object? sender, LocationChangedEventArgs e)
+    {
+        var antes = _udd;
+        LeerRuta();
+        if (antes != _udd)
+        {
+            _ = InvokeAsync(async () =>
+            {
+                await CargarAsync();
+                StateHasChanged();
+            });
+        }
+    }
+
+    private void LeerRuta()
+    {
+        var ruta = Navegacion.ToBaseRelativePath(Navegacion.Uri).Split('?', '#')[0].Trim('/');
+        _udd = ruta.Equals("udd/agenda", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose() => Navegacion.LocationChanged -= AlCambiarRuta;
+
+    private async Task CargarAsync()
+    {
+        _cargando = _dia is null;
+        _error = null;
+        try
+        {
+            _dia = await Cliente.DiaAsync(Ambito, _fecha, _compartida);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cargar la agenda.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private async Task FijarVista(bool medicos)
+    {
+        if (_compartida == medicos)
+        {
+            return;
+        }
+
+        _compartida = medicos;
+        await CargarAsync();
+    }
+
+    private async Task MesAnterior()
+    {
+        _fecha = _fecha.AddMonths(-1);
+        await CargarAsync();
+    }
+
+    private async Task MesSiguiente()
+    {
+        _fecha = _fecha.AddMonths(1);
+        await CargarAsync();
+    }
+
+    private async Task IrHoy()
+    {
+        _fecha = DateOnly.FromDateTime(DateTime.Today);
+        await CargarAsync();
+    }
+
+    private async Task IrDia(DateOnly fecha)
+    {
+        _fecha = fecha;
+        await CargarAsync();
+    }
+
+    private async Task IrDiaTexto(string iso)
+    {
+        if (DateOnly.TryParse(iso, out var fecha))
+        {
+            await IrDia(fecha);
+        }
+    }
+
+    private IEnumerable<DateOnly?> CeldasMes()
+    {
+        var primero = new DateOnly(_fecha.Year, _fecha.Month, 1);
+        var desplazamiento = ((int)primero.DayOfWeek + 6) % 7;
+        for (var i = 0; i < desplazamiento; i++)
+        {
+            yield return null;
+        }
+
+        for (var dia = 1; dia <= DateTime.DaysInMonth(_fecha.Year, _fecha.Month); dia++)
+        {
+            yield return new DateOnly(_fecha.Year, _fecha.Month, dia);
+        }
+    }
+
+    private void AbrirNueva(string hora, string? personaNombre = null)
+    {
+        if (_borrador && _idCita is null)
+        {
+            _editando = true;
+            _ = CargarPanelAsync();
+            return;
+        }
+
+        _idCita = null;
+        _tipo = "citas";
+        _horaInicio = hora;
+        _horaFin = HorasFin[Array.IndexOf(Horas, hora)];
+        _importante = false;
+        _recurrente = false;
+        _laboratorioRevisado = false;
+        _intervalo = 2;
+        _veces = 2;
+        _unidad = "dias";
+        _fechaFormulario = _fecha;
+        _puedeEditar = true;
+        _creadoPor = "";
+        _personaModal = "";
+        _elegidas.Clear();
+
+        _campos = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        _error = null;
+        _borrador = true;
+        _editando = true;
+        _ = CargarPanelAsync();
+    }
+
+    private void AbrirEdicion(CitaAgendaDto cita)
+    {
+        if (_borrador && _idCita == cita.Id)
+        {
+            _editando = true;
+            _ = CargarPanelAsync();
+            return;
+        }
+
+        var persona = _dia?.Personas.FirstOrDefault(item =>
+            item.Agenda == cita.Agenda && string.Equals(item.Nombre, cita.Persona, StringComparison.OrdinalIgnoreCase));
+        _idCita = cita.Id;
+        _tipo = cita.Tipo;
+        _horaInicio = cita.HoraInicio;
+        _horaFin = cita.HoraFin;
+        _importante = cita.Importante;
+        _recurrente = false;
+        _laboratorioRevisado = false;
+        _fechaFormulario = DateOnly.TryParse(cita.Fecha, out var fechaCita) ? fechaCita : _fecha;
+        _puedeEditar = cita.PuedeEditar;
+        _creadoPor = cita.CreadoPorPersona;
+        _personaModal = persona is null ? "" : Clave(persona);
+        _elegidas.Clear();
+        if (_personaModal.Length > 0)
+        {
+            _elegidas.Add(_personaModal);
+        }
+
+        _campos = new Dictionary<string, string>(cita.Campos, StringComparer.OrdinalIgnoreCase);
+        _error = null;
+        _borrador = cita.PuedeEditar;
+        _editando = true;
+        _ = CargarPanelAsync();
+    }
+
+    private async Task CargarPanelAsync()
+    {
+        _cargandoPanel = true;
+        try
+        {
+            if (_fechaFormulario == _fecha && (_udd || _dia?.PuedeAsignar != true))
+            {
+                _citasPanel = _dia?.Citas.ToList() ?? [];
+                return;
+            }
+
+            var dia = await Cliente.DiaAsync(Ambito, _fechaFormulario, false, asignadas: _dia?.PuedeAsignar == true && !_udd);
+            _citasPanel = dia.Citas.ToList();
+        }
+        catch (HttpRequestException)
+        {
+            _citasPanel = _dia?.Citas.ToList() ?? [];
+        }
+        finally
+        {
+            _cargandoPanel = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private bool FaltaPersona =>
+        _udd
+            ? string.IsNullOrEmpty(_personaModal)
+            : _dia?.PuedeAsignar == true && _elegidas.Count == 0;
+
+    private List<CitaAgendaDto> RegistrosPanel =>
+        _citasPanel.Where(cita => _udd
+            ? string.Equals(ClaveCita(cita), _personaModal, StringComparison.OrdinalIgnoreCase)
+            : _dia?.PuedeAsignar != true || _elegidas.Contains(ClaveCita(cita))).ToList();
+
+    private static string ClaveCita(CitaAgendaDto cita) => cita.Agenda + "|" + cita.Persona;
+
+    private void Cerrar() => _editando = false;
+
+    private void Cancelar()
+    {
+        _borrador = false;
+        _editando = false;
+    }
+
+    private void MarcarLaboratorio() => _laboratorioRevisado = true;
+
+    private void AlternarPersona(string clave, ChangeEventArgs evento)
+    {
+        var marcado = evento.Value is bool valor && valor || string.Equals(evento.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        if (marcado)
+        {
+            _elegidas.Add(clave);
+        }
+        else
+        {
+            _elegidas.Remove(clave);
+        }
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (!_puedeEditar)
+        {
+            return;
+        }
+
+        if (_idCita is null && _dia?.PuedeAsignar == true && (_udd ? string.IsNullOrEmpty(_personaModal) : _elegidas.Count == 0))
+        {
+            _error = "Selecciona al menos una persona.";
+            return;
+        }
+
+        if (_recurrente && _elegidas.Count > 1)
+        {
+            _error = "El registro múltiple es para una sola persona. Elige una o desactiva la repetición.";
+            return;
+        }
+
+        if (!PuedeGuardar)
+        {
+            _error = "Abre el archivo de laboratorios o márcalo como revisado.";
+            return;
+        }
+
+        _guardando = true;
+        _error = null;
+        var fallos = new List<string>();
+        var guardadas = 0;
+        try
+        {
+            foreach (var destino in Destinos())
+            {
+                foreach (var fecha in Fechas())
+                {
+                    try
+                    {
+                        await Cliente.GuardarCitaAsync(Ambito, _idCita is not null && fecha == _fechaFormulario ? _idCita : null, new GuardarCitaAgendaDto
+                        {
+                            Agenda = destino.Agenda,
+                            Fecha = fecha.ToString("yyyy-MM-dd"),
+                            HoraInicio = _horaInicio,
+                            HoraFin = _horaFin,
+                            Tipo = _udd ? "citas" : _tipo,
+                            Importante = _importante,
+                            UsuarioId = destino.UsuarioId,
+                            Persona = destino.Nombre,
+                            Campos = _campos
+                        });
+                        guardadas++;
+                    }
+                    catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+                    {
+                        fallos.Add($"{destino.Nombre} {fecha:dd/MM/yyyy}: {excepcion.Message}");
+                    }
+                }
+            }
+
+            if (fallos.Count > 0)
+            {
+                _error = guardadas == 0
+                    ? string.Join(" ", fallos)
+                    : $"Se guardaron {guardadas}. No se pudieron: {string.Join(" ", fallos)}";
+                if (guardadas > 0)
+                {
+                    await CargarAsync();
+                }
+
+                return;
+            }
+
+            _borrador = false;
+            _editando = false;
+            await CargarAsync();
+            Avisos.Completado();
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task EliminarAsync()
+    {
+        if (_idCita is not Guid id)
+        {
+            return;
+        }
+
+        _eliminando = true;
+        _error = null;
+        try
+        {
+            await Cliente.EliminarCitaAsync(Ambito, id);
+            _borrador = false;
+            _editando = false;
+            await CargarAsync();
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _eliminando = false;
+        }
+    }
+
+    private async Task QuitarImportanteAsync(Guid id)
+    {
+        _error = null;
+        try
+        {
+            await Cliente.MarcarImportanteAsync(Ambito, id, false);
+            await CargarAsync();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+    }
+
+    private void AbrirHistorico()
+    {
+        _historico = true;
+        _errorHistorico = null;
+        _buscarCompartida = _compartida;
+    }
+
+    private void CerrarHistorico() => _historico = false;
+
+    private async Task BuscarAmbitoAsync(bool compartida)
+    {
+        _buscarCompartida = compartida;
+        await BuscarAsync();
+    }
+
+    private async Task BuscarAsync()
+    {
+        if (SinCriterio)
+        {
+            _resultados = [];
+            _errorHistorico = null;
+            return;
+        }
+
+        _buscando = true;
+        _errorHistorico = null;
+        try
+        {
+            _resultados = await Cliente.BuscarAsync(Ambito, _buscarTexto.Trim(), Fecha(_buscarDesde), Fecha(_buscarHasta), _buscarCompartida);
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _errorHistorico = excepcion.Message;
+            _resultados = [];
+        }
+        finally
+        {
+            _buscando = false;
+        }
+    }
+
+    private async Task IrResultadoAsync(CitaAgendaDto cita)
+    {
+        _historico = false;
+        if (DateOnly.TryParse(cita.Fecha, out var fecha))
+        {
+            _fecha = fecha;
+        }
+
+        if (_dia?.PuedeAsignar == true && cita.Agenda == "medicos")
+        {
+            _compartida = true;
+        }
+
+        AbrirEdicion(cita);
+        await CargarAsync();
+    }
+
+    private async Task AgregarMonitoriaAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_monitoria))
+        {
+            return;
+        }
+
+        _error = null;
+        try
+        {
+            await Cliente.GuardarMonitoriaAsync(Ambito, new GuardarMonitoriaAgendaDto
+            {
+                Fecha = _fecha.ToString("yyyy-MM-dd"),
+                Descripcion = _monitoria.Trim()
+            });
+            _monitoria = "";
+            await CargarAsync();
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+    }
+
+    private async Task QuitarMonitoriaAsync(Guid id)
+    {
+        _error = null;
+        try
+        {
+            await Cliente.EliminarMonitoriaAsync(Ambito, id);
+            await CargarAsync();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+    }
+
+    private IEnumerable<DestinoCita> Destinos()
+    {
+        if (_idCita is null && !_udd && _dia?.PuedeAsignar == true)
+        {
+            foreach (var persona in _dia.Personas.Where(item => _elegidas.Contains(Clave(item))))
+            {
+                yield return new DestinoCita(Clave(persona), persona.Agenda, persona.UsuarioId, persona.Nombre);
+            }
+
+            yield break;
+        }
+
+        var unico = Destino();
+        yield return new DestinoCita(_personaModal, unico.Agenda, unico.UsuarioId, unico.Nombre);
+    }
+
+    private IEnumerable<DateOnly> Fechas()
+    {
+        if (_idCita is not null || !_recurrente)
+        {
+            yield return _fechaFormulario;
+            yield break;
+        }
+
+        var veces = Math.Clamp(_veces, 1, 24);
+        var intervalo = Math.Max(1, _intervalo);
+        for (var indice = 0; indice < veces; indice++)
+        {
+            yield return _unidad == "meses"
+                ? _fechaFormulario.AddMonths(intervalo * indice)
+                : _fechaFormulario.AddDays(intervalo * indice);
+        }
+    }
+
+    private (string Agenda, Guid? UsuarioId, string Nombre) Destino()
+    {
+        if (_dia?.PuedeAsignar == true)
+        {
+            var persona = _dia.Personas.FirstOrDefault(item => Clave(item) == _personaModal) ?? _dia.Personas.FirstOrDefault();
+            return persona is null
+                ? (_dia.AgendaPropia, _dia.UsuarioId, _dia.Persona)
+                : (persona.Agenda, persona.UsuarioId, persona.Nombre);
+        }
+
+        return (_dia?.AgendaPropia ?? "medicos", _dia?.UsuarioId, _dia?.Persona ?? "");
+    }
+
+    private string Valor(string clave) => _campos.TryGetValue(clave, out var valor) ? valor : "";
+
+    private void Escribir(string clave, ChangeEventArgs cambio) => _campos[clave] = cambio.Value?.ToString() ?? "";
+
+    private static string Clave(PersonaAgendaDto persona) => persona.Agenda + "|" + persona.Nombre;
+
+    private static string Fecha(DateTime? valor) => valor?.ToString("yyyy-MM-dd") ?? "";
+
+    private static string EtiquetaAgenda(string agenda) => agenda switch
+    {
+        "coordinacion" => "Coordinación",
+        "diseno" => "UDD",
+        _ => "Médicos"
+    };
+
+    private sealed record CampoAgenda(string Clave, string Etiqueta, bool Largo, params string[] Opciones);
+
+    private sealed record DestinoCita(string Clave, string Agenda, Guid? UsuarioId, string Nombre);
+}

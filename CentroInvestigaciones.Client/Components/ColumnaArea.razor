@@ -1,0 +1,14 @@
+<section class="columna-area">
+    <p class="etiqueta-area">@Area.Etiqueta</p>
+    <h2>@Area.Titulo</h2>
+    <div class="lista-herramientas">
+        @foreach (var herramienta in Area.Hijos ?? [])
+        {
+            <EnlaceHerramienta Elemento="herramienta" />
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ElementoNavegacion Area { get; set; } = default!;
+}

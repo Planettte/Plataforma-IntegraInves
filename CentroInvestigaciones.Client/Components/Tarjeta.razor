@@ -1,0 +1,31 @@
+@if (Ruta is not null)
+{
+    <a class="tarjeta" href="@Ruta">
+        <h2>@Titulo</h2>
+        @if (!string.IsNullOrWhiteSpace(Texto))
+        {
+            <p>@Texto</p>
+        }
+    </a>
+}
+else
+{
+    <article class="tarjeta">
+        <h2>@Titulo</h2>
+        @if (!string.IsNullOrWhiteSpace(Texto))
+        {
+            <p>@Texto</p>
+        }
+        @ChildContent
+    </article>
+}
+
+@code {
+    [Parameter] public string Titulo { get; set; } = "";
+
+    [Parameter] public string? Texto { get; set; }
+
+    [Parameter] public string? Ruta { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

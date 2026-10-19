@@ -1,0 +1,24 @@
+<label class="zona-archivo">
+    <span class="zona-archivo-icono" aria-hidden="true">📂</span>
+    <span>@Texto</span>
+    @if (!string.IsNullOrWhiteSpace(Ayuda))
+    {
+        <small>@Ayuda</small>
+    }
+    @if (Multiple)
+    {
+        <InputFile OnChange="AlCambiar" multiple accept="@Accept" />
+    }
+    else
+    {
+        <InputFile OnChange="AlCambiar" accept="@Accept" />
+    }
+</label>
+
+@code {
+    [Parameter] public string Texto { get; set; } = "Haz clic o arrastra archivos aquí";
+    [Parameter] public string? Ayuda { get; set; }
+    [Parameter] public bool Multiple { get; set; }
+    [Parameter] public string? Accept { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> AlCambiar { get; set; }
+}

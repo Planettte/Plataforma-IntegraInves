@@ -1,0 +1,25 @@
+<Modal Visible="Visible" Titulo="@Titulo" AlCerrar="AlCancelar">
+    <ChildContent>
+        <p>@Mensaje</p>
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="AlCancelar">Cancelar</Boton>
+        <Boton Variante="@VarianteConfirmar" AlActivar="AlConfirmar">@TextoConfirmar</Boton>
+    </Pie>
+</Modal>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+
+    [Parameter] public string Titulo { get; set; } = "Confirmar";
+
+    [Parameter] public string Mensaje { get; set; } = "";
+
+    [Parameter] public string TextoConfirmar { get; set; } = "Confirmar";
+
+    [Parameter] public string VarianteConfirmar { get; set; } = "peligro";
+
+    [Parameter] public EventCallback AlConfirmar { get; set; }
+
+    [Parameter] public EventCallback AlCancelar { get; set; }
+}

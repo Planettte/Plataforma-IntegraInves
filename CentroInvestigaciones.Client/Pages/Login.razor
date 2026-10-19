@@ -1,0 +1,84 @@
+@page "/login"
+@layout LoginLayout
+@inject ClienteSesion Sesion
+@inject NavigationManager Navegacion
+
+<main class="login-tarjeta">
+    <h1>Plataforma Integral del Centro de Investigaciones</h1>
+    <p>Usa tu cuenta autorizada. En el primer acceso completarás tu perfil institucional.</p>
+
+    @if (_cargando)
+    {
+        <Cargando Texto="Comprobando la configuración" />
+    }
+    else if (_yaAutenticado)
+    {
+        <Alerta Tipo="exito" Mensaje="Ya hay una sesión activa en este navegador." />
+        <a class="boton boton-primario" href="@_destino">Continuar</a>
+    }
+    else
+    {
+        @if (_errorConfiguracion || !_googleConfigurado)
+        {
+            <Alerta Tipo="aviso" Mensaje="Google todavía no tiene credenciales en este entorno. El ingreso queda pendiente de esa configuración." />
+        }
+        <a class="boton boton-primario" href="api/sesion/ingresar">Continuar con Google</a>
+        @if (_cuentas.Count > 0)
+        {
+            <form class="ingreso-desarrollo" action="api/sesion/ingreso-desarrollo" method="get">
+                <p>Ingreso de desarrollo. Elige una cuenta que ya exista. No pide Google ni contraseña.</p>
+                <label for="cuenta-desarrollo">Cuenta</label>
+                <select id="cuenta-desarrollo" class="seleccion" name="usuario">
+                    @foreach (var cuenta in _cuentas)
+                    {
+                        <option value="@cuenta.Id">@cuenta.Nombre · @cuenta.Cargo</option>
+                    }
+                </select>
+                <button class="boton boton-secundario" type="submit">Entrar sin Google</button>
+            </form>
+        }
+    }
+</main>
+
+@code {
+    private bool _cargando = true;
+    private bool _googleConfigurado;
+    private bool _errorConfiguracion;
+    private bool _yaAutenticado;
+    private string _destino = "/";
+    private List<CuentaDesarrolloDto> _cuentas = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Navegacion.ToAbsoluteUri(Navegacion.Uri);
+        _errorConfiguracion = uri.Query.Contains("error=configuracion", StringComparison.Ordinal);
+
+        try
+        {
+            var estado = await Sesion.ObtenerEstadoAsync();
+            var actual = await Sesion.ObtenerActualAsync();
+            _googleConfigurado = estado.GoogleConfigurado;
+            _yaAutenticado = actual.Autenticado;
+            if (estado.IngresoDesarrollo && !actual.Autenticado)
+            {
+                _cuentas = await Sesion.ListarCuentasDesarrolloAsync();
+            }
+            if (actual.RequiereCompletarIngreso)
+            {
+                _destino = "/primer-ingreso";
+            }
+            else if (actual.EstadoCuenta is "PendienteAprobacion" or "Rechazado" or "Inactivo")
+            {
+                _destino = "/estado-cuenta";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _googleConfigurado = false;
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+}

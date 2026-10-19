@@ -1,0 +1,76 @@
+<svg class="icono" viewBox="0 0 24 24" aria-hidden="true">
+    @switch (Nombre)
+    {
+        case "reloj":
+            <circle cx="12" cy="12" r="8" />
+            <path d="M12 8v5l3 2" />
+            break;
+        case "frasco":
+            <path d="M9 3h6M10 3v3l-4 8a4 4 0 0 0 3.5 6h5A4 4 0 0 0 18 14L14 6V3" />
+            break;
+        case "agenda":
+            <rect x="5" y="4" width="14" height="16" rx="2" />
+            <path d="M8 3v3M16 3v3M8 11h8M8 15h5" />
+            break;
+        case "archivo":
+            <path d="M6 4h8l4 4v12H6z" />
+            <path d="M14 4v4h4" />
+            break;
+        case "dispositivo":
+            <rect x="7" y="3" width="10" height="18" rx="2" />
+            <path d="M11 18h2" />
+            break;
+        case "formulario":
+            <path d="M7 3h8l3 3v15H7z" />
+            <path d="M9 11h6M9 15h6" />
+            break;
+        case "proyecto":
+            <path d="M4 7h6l2 2h8v10H4z" />
+            break;
+        case "estudio":
+            <path d="M4 19V6l8-3 8 3v13" />
+            <path d="M12 7v12" />
+            break;
+        case "documento":
+            <path d="M7 3h7l4 4v14H7z" />
+            <path d="M14 3v4h4M9 12h6M9 16h4" />
+            break;
+        case "campana":
+            <path d="M6 16V10.5a6 6 0 1 1 12 0V16l1.4 2H4.6z" />
+            <path d="M10 19.2a2 2 0 0 0 4 0" />
+            break;
+        case "nota":
+            <path d="M7 3.5h7.5L18 7v13.5H7z" />
+            <path d="M14.5 3.5V7H18M9.2 12h5.6M9.2 15.5h3.6" />
+            break;
+        case "cuadricula":
+            <rect x="4" y="4" width="6.2" height="6.2" rx="1.2" />
+            <rect x="13.8" y="4" width="6.2" height="6.2" rx="1.2" />
+            <rect x="4" y="13.8" width="6.2" height="6.2" rx="1.2" />
+            <rect x="13.8" y="13.8" width="6.2" height="6.2" rx="1.2" />
+            break;
+        case "inicio":
+            <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" />
+            break;
+        case "admin":
+            <circle cx="12" cy="8" r="3" />
+            <path d="M5 20a7 7 0 0 1 14 0" />
+            break;
+        case "persona":
+            <circle cx="12" cy="9" r="3.5" />
+            <path d="M6 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+            break;
+        case "estado":
+            <circle cx="12" cy="12" r="8" />
+            <path d="M12 8v4l2.5 2.5" />
+            break;
+        default:
+            <path d="M7 3h7l4 4v14H7z" />
+            <path d="M14 3v4h4M9 13h6M9 17h4" />
+            break;
+    }
+</svg>
+
+@code {
+    [Parameter] public string? Nombre { get; set; }
+}

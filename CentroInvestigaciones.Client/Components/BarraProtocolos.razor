@@ -1,0 +1,15 @@
+@implements IDisposable
+@inject NavigationManager Navegacion
+
+<nav class="barra-herramienta" aria-label="Formulario de protocolos">
+    <a href="/">Volver al inicio</a>
+    <NavLink href="/udd/protocolos" Match="NavLinkMatch.All">Registros</NavLink>
+</nav>
+
+@code {
+    protected override void OnInitialized() => Navegacion.LocationChanged += AlCambiar;
+
+    private void AlCambiar(object? sender, LocationChangedEventArgs e) => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Navegacion.LocationChanged -= AlCambiar;
+}

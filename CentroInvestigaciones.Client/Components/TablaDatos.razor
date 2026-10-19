@@ -1,0 +1,88 @@
+@typeparam TItem
+
+<div class="tabla-bloque">
+    <div class="tabla-herramientas">
+        <label>
+            Buscar
+            <input class="entrada" value="@_busqueda" @oninput="Buscar" />
+        </label>
+    </div>
+
+    @if (Pagina.Count == 0)
+    {
+        <EstadoVacio Mensaje="@MensajeVacio" />
+    }
+    else
+    {
+        <div class="tabla-contenedor">
+            <table>
+                <thead>
+                    @Encabezado
+                </thead>
+                <tbody>
+                    @foreach (var item in Pagina)
+                    {
+                        @if (Fila is not null)
+                        {
+                            @Fila(item)
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="paginacion">
+            <Boton Variante="secundario" Deshabilitado="@(_pagina <= 0)" AlActivar="Anterior">Anterior</Boton>
+            <span>Página @(_pagina + 1) de @TotalPaginas</span>
+            <Boton Variante="secundario" Deshabilitado="@(_pagina >= TotalPaginas - 1)" AlActivar="Siguiente">Siguiente</Boton>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<TItem> Items { get; set; } = Array.Empty<TItem>();
+
+    [Parameter] public Func<TItem, string>? TextoBusqueda { get; set; }
+
+    [Parameter] public int TamanoPagina { get; set; } = 10;
+
+    [Parameter] public string MensajeVacio { get; set; } = "No hay registros.";
+
+    [Parameter] public RenderFragment? Encabezado { get; set; }
+
+    [Parameter] public RenderFragment<TItem>? Fila { get; set; }
+
+    private string _busqueda = "";
+    private int _pagina;
+
+    private IReadOnlyList<TItem> Filtrados =>
+        string.IsNullOrWhiteSpace(_busqueda) || TextoBusqueda is null
+            ? Items
+            : Items.Where(item => TextoBusqueda(item).Contains(_busqueda.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private IReadOnlyList<TItem> Pagina =>
+        Filtrados.Skip(_pagina * TamanoPagina).Take(TamanoPagina).ToList();
+
+    private int TotalPaginas => Math.Max(1, (int)Math.Ceiling(Filtrados.Count / (double)TamanoPagina));
+
+    private void Buscar(ChangeEventArgs cambio)
+    {
+        _busqueda = cambio.Value?.ToString() ?? "";
+        _pagina = 0;
+    }
+
+    private void Anterior()
+    {
+        if (_pagina > 0)
+        {
+            _pagina--;
+        }
+    }
+
+    private void Siguiente()
+    {
+        if (_pagina < TotalPaginas - 1)
+        {
+            _pagina++;
+        }
+    }
+}

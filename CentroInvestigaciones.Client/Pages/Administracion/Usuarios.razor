@@ -1,0 +1,700 @@
+@page "/administracion/usuarios"
+@inject ClienteNucleo Nucleo
+@inject EstadoSesion Estado
+@inject Avisos Avisos
+
+@if (_error is not null && _editando is null && _areaCargo is null)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+else if (_cargando)
+{
+    <Cargando />
+}
+else if (_todos.Count == 0 && _pendientes.Count == 0)
+{
+    <EstadoVacio Mensaje="No hay usuarios cargados. Aparecen cuando alguien ingresa con Google." />
+}
+else
+{
+    <section class="tarjeta-dashboard tarjeta-usuarios">
+        <div class="tarjeta-usuarios-cabecera">
+            <span class="icono-solido"><IconoHerramienta Nombre="persona" /></span>
+            <div>
+                <h2>Usuarios registrados</h2>
+                <p>Listado de usuarios activos en la plataforma.</p>
+            </div>
+            <div class="filtros-usuarios">
+                <input class="entrada busqueda-usuarios" placeholder="Buscar por nombre, correo o rol..." value="@_busqueda" @oninput="Buscar" />
+                <select class="seleccion" value="@_filtroRol" @onchange="FiltrarRol">
+                    <option value="">Todos los roles</option>
+                    <option value="@RolUsuario">Usuario</option>
+                    <option value="@RolJefe">Jefe de área</option>
+                    <option value="@RolAdministrador">Administrador</option>
+                </select>
+            </div>
+        </div>
+        @if (PaginaActual.Count == 0)
+        {
+            <EstadoVacio Mensaje="Ningún usuario coincide con la búsqueda." />
+        }
+        else
+        {
+            <div class="tabla-contenedor tabla-usuarios">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Correo</th>
+                            <th>Cargo</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Área</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var usuario in PaginaActual)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="usuario-identidad">
+                                        <span class="avatar-iniciales">@Iniciales(usuario)</span>
+                                        <span>
+                                            <strong>@usuario.Nombre</strong>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="usuario-correo">
+                                        <svg class="icono-linea" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 7 9-7" /></svg>
+                                        <span>@usuario.CorreoElectronico</span>
+                                    </span>
+                                </td>
+                                <td>@EtiquetaCargo(usuario.Cargo)</td>
+                                <td>
+                                    <span class="usuario-rol">
+                                        <svg class="icono-linea" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3" /><path d="M5 19c1.4-3 3.8-4.5 7-4.5S17.6 16 19 19" /></svg>
+                                        <span>@NombreRol(usuario.Rol)</span>
+                                    </span>
+                                </td>
+                                <td><DistintivoEstado Texto="@TextosCuenta.Estado(usuario.EstadoCuenta)" Tono="@TextosCuenta.Tono(usuario.EstadoCuenta)" /></td>
+                                <td>@(usuario.AreaInteres ?? "Sin indicar")</td>
+                                <td class="acciones-fila">
+                                    @if (PuedeModificar)
+                                    {
+                                        <Boton Variante="secundario" AlActivar="@(() => AbrirEdicion(usuario))">
+                                            <svg class="icono-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16z" /><path d="M13 7l4 4" /></svg>
+                                            Editar
+                                        </Boton>
+                                    }
+                                    else if (PuedeAprobar)
+                                    {
+                                        <Boton Variante="secundario" AlActivar="@(() => AbrirAreaCargo(usuario, false))">Área y cargo</Boton>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="pie-tabla">
+                <span>Mostrando @PaginaActual.Count de @Filtrados.Count usuarios</span>
+                <div class="paginas-tabla">
+                    <button type="button" class="boton boton-secundario" disabled="@(_numero == 0)" @onclick="Anterior">‹</button>
+                    <span class="pagina-actual">@(_numero + 1)</span>
+                    <button type="button" class="boton boton-secundario" disabled="@(((_numero + 1) * _tamano) >= Filtrados.Count)" @onclick="Siguiente">›</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    <section class="tarjeta-dashboard tarjeta-usuarios">
+        <div class="tarjeta-usuarios-cabecera">
+            <span class="icono-solido"><IconoHerramienta Nombre="reloj" /></span>
+            <div>
+                <h2>Usuarios pendientes por aprobación</h2>
+                <p>Cuentas que requieren revisión y aprobación.</p>
+            </div>
+        </div>
+        @if (_pendientes.Count == 0)
+        {
+            <EstadoVacio Mensaje="No hay usuarios pendientes por aprobación." />
+        }
+        else
+        {
+            <div class="tabla-contenedor tabla-usuarios">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Correo</th>
+                            <th>Cargo</th>
+                            <th>Área</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var usuario in _pendientes)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="usuario-identidad">
+                                        <span class="avatar-iniciales">@Iniciales(usuario)</span>
+                                        <strong>@usuario.Nombre</strong>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="usuario-correo">
+                                        <svg class="icono-linea" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 7 9-7" /></svg>
+                                        <span>@usuario.CorreoElectronico</span>
+                                    </span>
+                                </td>
+                                <td>@EtiquetaCargo(usuario.Cargo)</td>
+                                <td>@(usuario.AreaInteres ?? "Sin indicar")</td>
+                                <td class="acciones-fila">
+                                    <Boton AlActivar="@(() => AbrirAreaCargo(usuario, true))">
+                                        <svg class="icono-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+                                        Aprobar
+                                    </Boton>
+                                    <Boton Variante="peligro" AlActivar="@(() => Cambiar(usuario.Id, "Rechazado"))">
+                                        <svg class="icono-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                                        Rechazar
+                                    </Boton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+<Modal Visible="_editando is not null" Titulo="@TituloEdicion" Clase="modal-ancho" AlCerrar="CerrarEdicion">
+    <ChildContent>
+    @if (_error is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+    <div class="fila-campos">
+        <div class="campo">
+            <label for="edit-estado">Estado</label>
+            <select id="edit-estado" class="seleccion" @bind="_estado">
+                @if (_estado == "PendienteAprobacion")
+                {
+                    <option value="PendienteAprobacion">Pendiente de aprobación</option>
+                }
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+                <option value="Rechazado">Rechazado</option>
+            </select>
+        </div>
+        <div class="campo">
+            <label for="edit-rol">Rol</label>
+            <select id="edit-rol" class="seleccion" @bind="_rol">
+                <option value="@RolUsuario">Usuario</option>
+                <option value="@RolJefe">Jefe de área</option>
+                <option value="@RolAdministrador">Administrador</option>
+            </select>
+        </div>
+    </div>
+    <div class="fila-campos">
+        <div class="campo">
+            <label for="edit-area">Área</label>
+            <select id="edit-area" class="seleccion" value="@_areaSeleccionada" @onchange="AlCambiarArea">
+                <option value="">Selecciona un área</option>
+                @foreach (var area in _areas)
+                {
+                    <option value="@area.Id">@area.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="campo">
+            <label for="edit-cargo">Cargo</label>
+            <select id="edit-cargo" class="seleccion" @bind="_cargo">
+                @foreach (var cargo in CargosDeArea())
+                {
+                    <option value="@cargo.Valor">@cargo.Etiqueta</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="fila-campos">
+        <div class="campo">
+            <label for="edit-nombres">Nombres</label>
+            <input id="edit-nombres" class="entrada" @bind="_nombres" />
+        </div>
+        <div class="campo">
+            <label for="edit-apellidos">Apellidos</label>
+            <input id="edit-apellidos" class="entrada" @bind="_apellidos" />
+        </div>
+    </div>
+    <div class="fila-campos">
+        <div class="campo">
+            <label for="edit-contacto">Número de contacto</label>
+            <input id="edit-contacto" class="entrada" @bind="_contacto" />
+        </div>
+        <div class="campo">
+            <label for="edit-extension">Extensión</label>
+            <input id="edit-extension" class="entrada" @bind="_extension" />
+        </div>
+    </div>
+    <h3>Herramientas</h3>
+    <p class="ayuda-campo">La agenda no se marca aquí: quien esté en Estudios clínicos o en UDD la tiene. Médicos y coordinación usan su agenda; apoyo y farmacia solo consultan la agenda general.</p>
+    @foreach (var grupo in CatalogoNavegacion.Herramientas.GroupBy(item => item.Etiqueta))
+    {
+        <div class="bloque-area-permisos">
+            <div class="bloque-area-cabecera">
+                <strong>@grupo.Key</strong>
+                <Boton Variante="secundario" AlActivar="@(() => MarcarArea(grupo.Key!, true))">Todas</Boton>
+                <Boton Variante="secundario" AlActivar="@(() => MarcarArea(grupo.Key!, false))">Ninguna</Boton>
+            </div>
+            @foreach (var herramienta in grupo.Where(item => !EsAgenda(item.CodigoPermiso)))
+            {
+                <label class="opcion-check">
+                    <input type="checkbox" checked="@_seleccionHerramientas.Contains(herramienta.CodigoPermiso!)"
+                           @onchange="e => AlternarHerramienta(herramienta.CodigoPermiso!, (bool)(e.Value ?? false))" />
+                    @herramienta.Titulo
+                </label>
+            }
+        </div>
+    }
+    </ChildContent>
+    <Pie>
+        <Boton Deshabilitado="@(!DatosValidos)" Cargando="_guardando" AlActivar="IntentarGuardar">Guardar</Boton>
+        <Boton Variante="secundario" AlActivar="CerrarEdicion">Cerrar</Boton>
+    </Pie>
+</Modal>
+
+<Modal Visible="_areaCargo is not null" Titulo="@TituloAreaCargo" AlCerrar="CerrarAreaCargo">
+    <ChildContent>
+        @if (_error is not null)
+        {
+            <Alerta Tipo="peligro" Mensaje="@_error" />
+        }
+        <p class="ayuda-campo">El área y el cargo los define un jefe o un administrador. En Estudios clínicos el cargo elige la agenda; en UDD e Investigaciones queda fijo.</p>
+        <div class="campo">
+            <label for="aprobar-area">Área</label>
+            <select id="aprobar-area" class="seleccion" value="@_areaSeleccionada" @onchange="AlCambiarArea">
+                <option value="">Selecciona un área</option>
+                @foreach (var area in _areas)
+                {
+                    <option value="@area.Id">@area.Nombre</option>
+                }
+            </select>
+        </div>
+        <div class="campo">
+            <label for="aprobar-cargo">Cargo</label>
+            <select id="aprobar-cargo" class="seleccion" @bind="_cargo">
+                @foreach (var cargo in CargosDeArea())
+                {
+                    <option value="@cargo.Valor">@cargo.Etiqueta</option>
+                }
+            </select>
+        </div>
+    </ChildContent>
+    <Pie>
+        <Boton Deshabilitado="@(!AreaCargoValida)" Cargando="_guardando" TextoCargando="@(_activarAlGuardar ? "Aprobando…" : "Guardando…")" AlActivar="GuardarAreaCargo">@(_activarAlGuardar ? "Aprobar" : "Guardar")</Boton>
+        <Boton Variante="secundario" AlActivar="CerrarAreaCargo">Cerrar</Boton>
+    </Pie>
+</Modal>
+
+<Confirmacion Visible="_confirmarRol"
+              Titulo="Cambiar rol"
+              Mensaje="@_mensajeConfirmacion"
+              TextoConfirmar="Sí, cambiar rol"
+              AlConfirmar="ConfirmarRol"
+              AlCancelar="CancelarRol" />
+
+@code {
+    private const string RolUsuario = "usuario";
+    private const string RolJefe = "jefe-area";
+    private const string RolAdministrador = "administrador-plataforma";
+
+    private bool _cargando = true;
+    private bool _guardando;
+    private bool _confirmarRol;
+    private int _numero;
+    private int _tamano = 10;
+    private string? _error;
+    private string _busqueda = "";
+    private string _filtroRol = "";
+    private string _mensajeConfirmacion = "";
+    private List<UsuarioResumenDto> _todos = [];
+    private IReadOnlyList<UsuarioResumenDto> _pendientes = [];
+    private IReadOnlyList<AreaDto> _areas = [];
+    private UsuarioResumenDto? _editando;
+    private UsuarioResumenDto? _areaCargo;
+    private bool _activarAlGuardar;
+    private string _rol = RolUsuario;
+    private string _rolActual = RolUsuario;
+    private string _estado = "Activo";
+    private string _estadoActual = "Activo";
+    private HashSet<string> _seleccionHerramientas = new(StringComparer.Ordinal);
+    private string _nombres = "";
+    private string _apellidos = "";
+    private string _contacto = "";
+    private string _extension = "";
+    private string _cargo = "";
+    private string _areaSeleccionada = "";
+
+    private bool PuedeModificar => Estado.Actual.Permisos.Contains("nucleo.usuarios.modificar");
+
+    private bool PuedeAprobar => Estado.Actual.Permisos.Contains("nucleo.usuarios.aprobar");
+
+    private string TituloEdicion => _editando is null ? "Editar usuario" : $"Editar a {_editando.Nombre}";
+
+    private bool DatosValidos =>
+        !string.IsNullOrWhiteSpace(_nombres)
+        && !string.IsNullOrWhiteSpace(_apellidos)
+        && !string.IsNullOrWhiteSpace(_contacto)
+        && !string.IsNullOrWhiteSpace(_cargo)
+        && Guid.TryParse(_areaSeleccionada, out _);
+
+    private bool AreaCargoValida =>
+        !string.IsNullOrWhiteSpace(_cargo)
+        && Guid.TryParse(_areaSeleccionada, out _);
+
+    private string TituloAreaCargo => _areaCargo is null
+        ? "Área y cargo"
+        : _activarAlGuardar ? $"Aprobar a {_areaCargo.Nombre}" : $"Área y cargo de {_areaCargo.Nombre}";
+
+    private IReadOnlyList<UsuarioResumenDto> Filtrados
+    {
+        get
+        {
+            IEnumerable<UsuarioResumenDto> consulta = _todos;
+            if (!string.IsNullOrWhiteSpace(_busqueda))
+            {
+                var texto = _busqueda.Trim();
+                consulta = consulta.Where(usuario =>
+                    usuario.Nombre.Contains(texto, StringComparison.OrdinalIgnoreCase)
+                    || usuario.CorreoElectronico.Contains(texto, StringComparison.OrdinalIgnoreCase)
+                    || NombreRol(usuario.Rol).Contains(texto, StringComparison.OrdinalIgnoreCase)
+                    || EtiquetaCargo(usuario.Cargo).Contains(texto, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(_filtroRol))
+            {
+                consulta = consulta.Where(usuario =>
+                    string.Equals(string.IsNullOrWhiteSpace(usuario.Rol) ? RolUsuario : usuario.Rol, _filtroRol, StringComparison.Ordinal));
+            }
+
+            return consulta.ToList();
+        }
+    }
+
+    private IReadOnlyList<UsuarioResumenDto> PaginaActual =>
+        Filtrados.Skip(_numero * _tamano).Take(_tamano).ToList();
+
+    protected override async Task OnInitializedAsync() => await Cargar();
+
+    private async Task Cargar()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            var pagina = await Nucleo.ListarUsuariosAsync(0, null, 50);
+            _todos = pagina.Elementos.ToList();
+            _pendientes = (await Nucleo.ListarUsuariosPendientesAsync()).Elementos;
+            if ((PuedeModificar || PuedeAprobar) && _areas.Count == 0)
+            {
+                _areas = await Nucleo.ListarAreasAsync();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No tienes permiso para ver los usuarios o la base no está disponible.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void Buscar(ChangeEventArgs evento)
+    {
+        _busqueda = evento.Value?.ToString() ?? "";
+        _numero = 0;
+    }
+
+    private void FiltrarRol(ChangeEventArgs evento)
+    {
+        _filtroRol = evento.Value?.ToString() ?? "";
+        _numero = 0;
+    }
+
+    private void AbrirAreaCargo(UsuarioResumenDto usuario, bool activar)
+    {
+        _areaCargo = usuario;
+        _activarAlGuardar = activar;
+        _areaSeleccionada = usuario.AreaInteresId?.ToString() ?? "";
+        _cargo = CargoInicial(usuario.Cargo);
+    }
+
+    private void CerrarAreaCargo()
+    {
+        _areaCargo = null;
+        _activarAlGuardar = false;
+    }
+
+    private async Task GuardarAreaCargo()
+    {
+        if (_areaCargo is null || !AreaCargoValida || !Guid.TryParse(_areaSeleccionada, out var areaId))
+        {
+            return;
+        }
+
+        _guardando = true;
+        _error = null;
+        try
+        {
+            await Nucleo.AsignarAreaCargoAsync(_areaCargo.Id, areaId, _cargo);
+            if (_activarAlGuardar)
+            {
+                await Nucleo.CambiarEstadoAsync(_areaCargo.Id, "Activo");
+            }
+
+            CerrarAreaCargo();
+            await Cargar();
+            Avisos.Completado();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo guardar el área y el cargo.";
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task Cambiar(Guid id, string estado)
+    {
+        try
+        {
+            await Nucleo.CambiarEstadoAsync(id, estado);
+            await Cargar();
+            Avisos.Completado();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cambiar el estado.";
+        }
+    }
+
+    private async Task AbrirEdicion(UsuarioResumenDto usuario)
+    {
+        _editando = usuario;
+        _nombres = string.IsNullOrWhiteSpace(usuario.Nombres) ? usuario.Nombre : usuario.Nombres;
+        _apellidos = usuario.Apellidos;
+        _contacto = usuario.NumeroContacto ?? "";
+        _extension = usuario.Extension;
+        _areaSeleccionada = usuario.AreaInteresId?.ToString() ?? "";
+        _cargo = CargoInicial(usuario.Cargo);
+        _estado = string.IsNullOrWhiteSpace(usuario.EstadoCuenta) ? "Activo" : usuario.EstadoCuenta;
+        _estadoActual = _estado;
+        _rolActual = string.IsNullOrWhiteSpace(usuario.Rol) ? RolUsuario : usuario.Rol;
+        _rol = _rolActual;
+        try
+        {
+            var actuales = await Nucleo.ObtenerHerramientasUsuarioAsync(usuario.Id);
+            _seleccionHerramientas = actuales.ToHashSet(StringComparer.Ordinal);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cargar el acceso del usuario.";
+            _editando = null;
+        }
+    }
+
+    private void CerrarEdicion()
+    {
+        _editando = null;
+        _seleccionHerramientas.Clear();
+        _confirmarRol = false;
+    }
+
+    private void AlCambiarArea(ChangeEventArgs evento)
+    {
+        _areaSeleccionada = evento.Value?.ToString() ?? "";
+        var opciones = CargosDeArea();
+        if (opciones.All(item => item.Valor != _cargo))
+        {
+            _cargo = opciones.FirstOrDefault().Valor ?? "";
+        }
+    }
+
+    private async Task GuardarDatos()
+    {
+        if (_editando is null || !DatosValidos || !Guid.TryParse(_areaSeleccionada, out var areaId))
+        {
+            return;
+        }
+
+        await Nucleo.ActualizarUsuarioAsync(_editando.Id, new CompletarIngresoDto
+        {
+            Nombres = _nombres.Trim(),
+            Apellidos = _apellidos.Trim(),
+            NumeroContacto = _contacto.Trim(),
+            Extension = _extension.Trim(),
+            Cargo = _cargo.Trim(),
+            AreaInteresId = areaId
+        });
+        if (!string.Equals(_estado, _estadoActual, StringComparison.Ordinal))
+        {
+            await Nucleo.CambiarEstadoAsync(_editando.Id, _estado);
+        }
+
+        await Nucleo.GuardarAccesoAsync(_editando.Id, _rol, _seleccionHerramientas.ToList());
+    }
+
+    private void AlternarHerramienta(string codigo, bool activo)
+    {
+        if (activo)
+        {
+            _seleccionHerramientas.Add(codigo);
+        }
+        else
+        {
+            _seleccionHerramientas.Remove(codigo);
+        }
+    }
+
+    private void MarcarArea(string area, bool activar)
+    {
+        foreach (var herramienta in CatalogoNavegacion.Herramientas.Where(item => item.Etiqueta == area && !EsAgenda(item.CodigoPermiso)))
+        {
+            if (activar)
+            {
+                _seleccionHerramientas.Add(herramienta.CodigoPermiso!);
+            }
+            else
+            {
+                _seleccionHerramientas.Remove(herramienta.CodigoPermiso!);
+            }
+        }
+    }
+
+    private async Task IntentarGuardar()
+    {
+        if (_editando is null || !DatosValidos)
+        {
+            return;
+        }
+
+        if ((_rol == RolJefe || _rol == RolAdministrador) && _rol != _rolActual)
+        {
+            var destino = _rol == RolAdministrador ? "administrador" : "jefe de área";
+            var alcance = _rol == RolAdministrador
+                ? "Tendrá acceso completo a la plataforma."
+                : "Podrá aceptar o rechazar usuarios, además de las herramientas que le asignes.";
+            _mensajeConfirmacion = $"Vas a convertir a {_editando.Nombre} en {destino}. {alcance}";
+            _confirmarRol = true;
+            return;
+        }
+
+        await GuardarEdicion();
+    }
+
+    private async Task ConfirmarRol()
+    {
+        _confirmarRol = false;
+        await GuardarEdicion();
+    }
+
+    private void CancelarRol() => _confirmarRol = false;
+
+    private async Task GuardarEdicion()
+    {
+        if (_editando is null)
+        {
+            return;
+        }
+
+        _guardando = true;
+        _error = null;
+        try
+        {
+            await GuardarDatos();
+            CerrarEdicion();
+            await Cargar();
+            Avisos.Completado();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudieron guardar los cambios del usuario.";
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private void Anterior()
+    {
+        if (_numero > 0)
+        {
+            _numero--;
+        }
+    }
+
+    private void Siguiente() => _numero++;
+
+    private string CargoInicial(string? cargo)
+    {
+        var normalizado = cargo?.Trim().ToLowerInvariant() ?? "";
+        return CargosDeArea().Any(item => item.Valor == normalizado)
+            ? normalizado
+            : CargosDeArea().FirstOrDefault().Valor ?? "";
+    }
+
+    private IReadOnlyList<(string Valor, string Etiqueta)> CargosDeArea()
+    {
+        var codigo = _areas.FirstOrDefault(area => area.Id.ToString() == _areaSeleccionada)?.Codigo ?? "";
+        return codigo switch
+        {
+            "udd" => [("udd", "UDD")],
+            "comite" => [("usuario", "Usuario")],
+            _ => [("coordinacion", "Coordinación"), ("medico", "Médico"), ("apoyo", "Apoyo"), ("farmacia", "Farmacia")]
+        };
+    }
+
+    private static bool EsAgenda(string? codigo) =>
+        codigo is "herramientas.estudios.agenda" or "herramientas.udd.agenda";
+
+    private static string Iniciales(UsuarioResumenDto usuario)
+    {
+        var partes = usuario.Nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 0)
+        {
+            return "?";
+        }
+
+        var primera = partes[0][0];
+        var segunda = partes.Length > 1 ? partes[1][0] : '\0';
+        return segunda == '\0'
+            ? char.ToUpperInvariant(primera).ToString()
+            : string.Concat(char.ToUpperInvariant(primera), char.ToUpperInvariant(segunda));
+    }
+
+    private static string EtiquetaCargo(string? cargo) => cargo switch
+    {
+        "coordinacion" => "Coordinación",
+        "medico" => "Médico",
+        "apoyo" => "Apoyo",
+        "farmacia" => "Farmacia",
+        "udd" => "UDD",
+        "usuario" => "Usuario",
+        _ => string.IsNullOrWhiteSpace(cargo) ? "Sin indicar" : cargo
+    };
+
+    private static string NombreRol(string codigo) => codigo switch
+    {
+        RolJefe => "Jefe de área",
+        RolAdministrador => "Administrador",
+        _ => "Usuario"
+    };
+}

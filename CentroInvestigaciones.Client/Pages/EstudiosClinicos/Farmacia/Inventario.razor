@@ -1,0 +1,398 @@
+@page "/estudios-clinicos/inventario-farmacia/inventario"
+@inject ClienteFarmacia Cliente
+@inject Avisos Avisos
+
+<div class="cabecera-herramienta">
+    <EncabezadoPagina Titulo="Inventario general" Descripcion="Medicamentos sin estudio. Usan las mismas columnas de la fila del formato." />
+</div>
+
+@if (_error is not null && !_editando)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else
+{
+    <div class="tarjetas-farmacia">
+        <article class="tarjeta-dispositivo">
+            <h3>Total</h3>
+            <strong>@_filas.Count</strong>
+        </article>
+        <article class="tarjeta-dispositivo">
+            <h3>Próximos a vencer</h3>
+            <strong>@_filas.Count(ProximoAVencer)</strong>
+            <p class="ayuda-campo">En el próximo mes</p>
+        </article>
+    </div>
+
+    <div class="filtros-dispositivo">
+        <label class="filtro-buscar">
+            Buscar
+            <input class="entrada" @bind="_texto" @bind:event="oninput" placeholder="Código, lote, sujeto o envío" />
+        </label>
+        <label>
+            Vencimiento
+            <select class="seleccion" @bind="_vencimiento">
+                <option value="">Todos</option>
+                <option value="proximo">Próximos a vencer</option>
+                <option value="vencido">Vencidos</option>
+            </select>
+        </label>
+        <Boton AlActivar="Nuevo">Nuevo medicamento</Boton>
+    </div>
+
+    @if (Filtrados.Count == 0)
+    {
+        <EstadoVacio Mensaje="@(_filas.Count == 0 ? "No hay medicamentos en el inventario general." : "Sin resultados.")" />
+    }
+    else
+    {
+    <div class="tabla-contenedor tabla-farmacia-marco">
+        <table class="tabla-farmacia">
+            <thead>
+                <tr>
+                    <th rowspan="2">N° envío</th>
+                    <th colspan="5">Recepción</th>
+                    <th colspan="4">Entrega</th>
+                    <th colspan="5">Retorno</th>
+                    <th rowspan="2">Control monitoría</th>
+                    <th colspan="3">Disposición final</th>
+                    <th rowspan="2"></th>
+                </tr>
+                <tr>
+                    <th>Fecha recibido<span class="pista-fecha">dd-mm-aa</span></th>
+                    <th>Lote/Ref</th>
+                    <th>Fecha vencimiento<span class="pista-fecha">dd-mm-aa</span></th>
+                    <th>Código<br>medicamento</th>
+                    <th>Conforme</th>
+                    <th>Sujeto código/<br>iniciales</th>
+                    <th>Fecha<span class="pista-fecha">dd-mm-aa</span></th>
+                    <th>Entrega</th>
+                    <th>Recibe</th>
+                    <th>Fecha<span class="pista-fecha">dd-mm-aa</span></th>
+                    <th>Empaque</th>
+                    <th>Und.<br>medicamento</th>
+                    <th>Entrega</th>
+                    <th>Recibe</th>
+                    <th>Fecha<span class="pista-fecha">dd-mm-aa</span></th>
+                    <th>Retorno patrocinador<br>N° acta</th>
+                    <th>Destrucción<br>N° acta</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var fila in Filtrados)
+                {
+                    <tr>
+                        <td>@Texto(fila.NumeroEnvio)</td>
+                        <td>@Fecha(fila.FechaRecibido)</td>
+                        <td>@Texto(fila.Lote)</td>
+                        <td>@Fecha(fila.FechaVencimiento)</td>
+                        <td>@Texto(fila.CodigoMedicamento)</td>
+                        <td>@Texto(fila.Conforme)</td>
+                        <td>@Texto(fila.SujetoCodigo)</td>
+                        <td>@Fecha(fila.FechaEntrega)</td>
+                        <td>@Texto(fila.Entrega)</td>
+                        <td>@Texto(fila.Recibe)</td>
+                        <td>@Fecha(fila.FechaRetorno)</td>
+                        <td>@Texto(fila.Empaque)</td>
+                        <td>@Texto(fila.Unidades)</td>
+                        <td>@Texto(fila.EntregaRetorno)</td>
+                        <td>@Texto(fila.RecibeRetorno)</td>
+                        <td>@Texto(fila.ControlMonitoria)</td>
+                        <td>@Fecha(fila.FechaDisposicion)</td>
+                        <td>@Texto(fila.RetornoPatrocinador)</td>
+                        <td>@Texto(fila.DestruccionActa)</td>
+                        <td class="acciones-fila">
+                            <Boton Variante="secundario" AlActivar="() => Editar(fila)">Editar</Boton>
+                            <Boton Variante="peligro" AlActivar="() => PedirBorrado(fila)">Eliminar</Boton>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    }
+}
+
+<Modal Visible="_editando" Titulo="@(_fila.Id == Guid.Empty ? "Nuevo medicamento" : "Editar medicamento")" Clase="modal-ancho" AlCerrar="Cerrar">
+    <ChildContent>
+        @if (_error is not null)
+        {
+            <Alerta Tipo="peligro" Mensaje="@_error" />
+        }
+        <p class="asignar-grupo">Recepción</p>
+        <div class="fila-campos-3">
+            <div class="campo">
+                <label for="inv-envio">N° envío</label>
+                <input id="inv-envio" class="entrada" @bind="_fila.NumeroEnvio" />
+            </div>
+            <div class="campo">
+                <label for="inv-recibido">Fecha recibido</label>
+                <input id="inv-recibido" class="entrada" type="date" value="@_fila.FechaRecibido" @onchange="e => _fila.FechaRecibido = FechaValor(e)" />
+            </div>
+            <div class="campo">
+                <label for="inv-lote">Lote/Ref</label>
+                <input id="inv-lote" class="entrada" @bind="_fila.Lote" />
+            </div>
+            <div class="campo">
+                <label for="inv-vence">Fecha de vencimiento</label>
+                <input id="inv-vence" class="entrada" type="date" value="@_fila.FechaVencimiento" @onchange="e => _fila.FechaVencimiento = FechaValor(e)" />
+            </div>
+            <div class="campo">
+                <label for="inv-codigo">Código del medicamento</label>
+                <input id="inv-codigo" class="entrada" @bind="_fila.CodigoMedicamento" />
+            </div>
+            <div class="campo">
+                <label for="inv-conforme">Conforme</label>
+                <input id="inv-conforme" class="entrada" @bind="_fila.Conforme" />
+            </div>
+        </div>
+        <p class="asignar-grupo">Entrega</p>
+        <div class="fila-campos-3">
+            <div class="campo">
+                <label for="inv-sujeto">Sujeto código/iniciales</label>
+                <input id="inv-sujeto" class="entrada" @bind="_fila.SujetoCodigo" />
+            </div>
+            <div class="campo">
+                <label for="inv-fecha-entrega">Fecha</label>
+                <input id="inv-fecha-entrega" class="entrada" type="date" value="@_fila.FechaEntrega" @onchange="e => _fila.FechaEntrega = FechaValor(e)" />
+            </div>
+            <div class="campo">
+                <label for="inv-entrega">Entrega</label>
+                <input id="inv-entrega" class="entrada" @bind="_fila.Entrega" />
+            </div>
+            <div class="campo">
+                <label for="inv-recibe">Recibe</label>
+                <input id="inv-recibe" class="entrada" @bind="_fila.Recibe" />
+            </div>
+        </div>
+        <p class="asignar-grupo">Retorno</p>
+        <div class="fila-campos-3">
+            <div class="campo">
+                <label for="inv-fecha-retorno">Fecha</label>
+                <input id="inv-fecha-retorno" class="entrada" type="date" value="@_fila.FechaRetorno" @onchange="e => _fila.FechaRetorno = FechaValor(e)" />
+            </div>
+            <div class="campo">
+                <label for="inv-empaque">Empaque</label>
+                <input id="inv-empaque" class="entrada" @bind="_fila.Empaque" />
+            </div>
+            <div class="campo">
+                <label for="inv-unidades">Und. medicamento</label>
+                <input id="inv-unidades" class="entrada" @bind="_fila.Unidades" />
+            </div>
+            <div class="campo">
+                <label for="inv-entrega-retorno">Entrega</label>
+                <input id="inv-entrega-retorno" class="entrada" @bind="_fila.EntregaRetorno" />
+            </div>
+            <div class="campo">
+                <label for="inv-recibe-retorno">Recibe</label>
+                <input id="inv-recibe-retorno" class="entrada" @bind="_fila.RecibeRetorno" />
+            </div>
+        </div>
+        <p class="asignar-grupo">Control y disposición final</p>
+        <div class="fila-campos-3">
+            <div class="campo">
+                <label for="inv-monitoria">Control monitoría</label>
+                <input id="inv-monitoria" class="entrada" @bind="_fila.ControlMonitoria" />
+            </div>
+            <div class="campo">
+                <label for="inv-fecha-disp">Fecha</label>
+                <input id="inv-fecha-disp" class="entrada" type="date" value="@_fila.FechaDisposicion" @onchange="e => _fila.FechaDisposicion = FechaValor(e)" />
+            </div>
+            <div class="campo">
+                <label for="inv-acta-pat">Retorno patrocinador N° acta</label>
+                <input id="inv-acta-pat" class="entrada" @bind="_fila.RetornoPatrocinador" />
+            </div>
+            <div class="campo">
+                <label for="inv-acta-des">Destrucción N° acta</label>
+                <input id="inv-acta-des" class="entrada" @bind="_fila.DestruccionActa" />
+            </div>
+        </div>
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="Cerrar">Cancelar</Boton>
+        <Boton Cargando="_guardando" AlActivar="GuardarAsync">Guardar</Boton>
+    </Pie>
+</Modal>
+
+<Confirmacion Visible="_borrar" Titulo="Eliminar medicamento" Mensaje="Se quita del inventario general. Los formatos no cambian." TextoConfirmar="Eliminar" AlConfirmar="EliminarAsync" AlCancelar="CancelarBorrado" />
+
+@code {
+    private List<FilaFarmaciaDto> _filas = [];
+    private FilaFarmaciaDto _fila = new();
+    private FilaFarmaciaDto? _pendiente;
+    private bool _cargando = true;
+    private bool _editando;
+    private bool _guardando;
+    private bool _borrar;
+    private string? _error;
+    private string _texto = "";
+    private string _vencimiento = "";
+
+    private List<FilaFarmaciaDto> Filtrados => _filas.Where(Coincide).ToList();
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            _filas = (await Cliente.ListarInventarioAsync()).ToList();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cargar el inventario.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void Nuevo()
+    {
+        _fila = new FilaFarmaciaDto();
+        _error = null;
+        _editando = true;
+    }
+
+    private void Editar(FilaFarmaciaDto fila)
+    {
+        _fila = Copiar(fila);
+        _error = null;
+        _editando = true;
+    }
+
+    private void Cerrar() => _editando = false;
+
+    private async Task GuardarAsync()
+    {
+        _guardando = true;
+        _error = null;
+        try
+        {
+            await Cliente.GuardarInventarioAsync(_fila);
+            _editando = false;
+            await CargarAsync();
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private void PedirBorrado(FilaFarmaciaDto fila)
+    {
+        _pendiente = fila;
+        _borrar = true;
+    }
+
+    private void CancelarBorrado()
+    {
+        _borrar = false;
+        _pendiente = null;
+    }
+
+    private async Task EliminarAsync()
+    {
+        if (_pendiente is null)
+        {
+            return;
+        }
+
+        _error = null;
+        try
+        {
+            await Cliente.EliminarInventarioAsync(_pendiente.Id);
+            _borrar = false;
+            _pendiente = null;
+            await CargarAsync();
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _borrar = false;
+            _error = excepcion.Message;
+        }
+    }
+
+    private static FilaFarmaciaDto Copiar(FilaFarmaciaDto fila) => new()
+    {
+        Id = fila.Id,
+        NumeroEnvio = fila.NumeroEnvio,
+        FechaRecibido = fila.FechaRecibido,
+        Lote = fila.Lote,
+        FechaVencimiento = fila.FechaVencimiento,
+        CodigoMedicamento = fila.CodigoMedicamento,
+        Conforme = fila.Conforme,
+        SujetoCodigo = fila.SujetoCodigo,
+        FechaEntrega = fila.FechaEntrega,
+        Entrega = fila.Entrega,
+        Recibe = fila.Recibe,
+        FechaRetorno = fila.FechaRetorno,
+        Empaque = fila.Empaque,
+        Unidades = fila.Unidades,
+        EntregaRetorno = fila.EntregaRetorno,
+        RecibeRetorno = fila.RecibeRetorno,
+        ControlMonitoria = fila.ControlMonitoria,
+        FechaDisposicion = fila.FechaDisposicion,
+        RetornoPatrocinador = fila.RetornoPatrocinador,
+        DestruccionActa = fila.DestruccionActa
+    };
+
+    private bool Coincide(FilaFarmaciaDto fila)
+    {
+        if (_vencimiento == "proximo" && !ProximoAVencer(fila))
+        {
+            return false;
+        }
+
+        if (_vencimiento == "vencido" && !Vencido(fila))
+        {
+            return false;
+        }
+
+        var texto = _texto.Trim();
+        if (texto.Length == 0)
+        {
+            return true;
+        }
+
+        return fila.CodigoMedicamento.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || fila.Lote.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || fila.SujetoCodigo.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || fila.NumeroEnvio.Contains(texto, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ProximoAVencer(FilaFarmaciaDto fila)
+    {
+        if (!DateOnly.TryParse(fila.FechaVencimiento, out var fecha))
+        {
+            return false;
+        }
+
+        var hoy = DateOnly.FromDateTime(DateTime.Today);
+        return fecha >= hoy && fecha <= hoy.AddMonths(1);
+    }
+
+    private static bool Vencido(FilaFarmaciaDto fila) =>
+        DateOnly.TryParse(fila.FechaVencimiento, out var fecha) && fecha < DateOnly.FromDateTime(DateTime.Today);
+
+    private static string Texto(string valor) => string.IsNullOrWhiteSpace(valor) ? "—" : valor;
+
+    private static string Fecha(string valor) =>
+        DateOnly.TryParse(valor, out var fecha) ? fecha.ToString("dd/MM/yyyy") : Texto(valor);
+
+    private static string FechaValor(ChangeEventArgs evento) => evento.Value?.ToString() ?? "";
+}

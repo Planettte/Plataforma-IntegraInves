@@ -1,0 +1,114 @@
+@page "/estudios-clinicos/hojas-de-vida"
+@inject ClienteHojasVida Cliente
+@inject NavigationManager Navegacion
+
+<div class="cabecera-herramienta">
+    <EncabezadoPagina Titulo="Hojas de vida" Descripcion="Personas con hoja de vida digital. El PDF se arma al descargar y no se guarda." />
+    <Boton AlActivar="AbrirAlta">Nueva persona</Boton>
+</div>
+
+@if (_error is not null)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+
+<div class="campo">
+    <label for="buscar-persona">Buscar</label>
+    <input id="buscar-persona" class="entrada" @bind="_busqueda" @bind:event="oninput" placeholder="Nombre o título" />
+</div>
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (Filtradas.Count == 0)
+{
+    <EstadoVacio Mensaje="No hay personas con ese criterio." />
+}
+else
+{
+    <ul class="lista-personas">
+        @foreach (var persona in Filtradas)
+        {
+            <li>
+                <a class="persona-fila" href="@($"/estudios-clinicos/hojas-de-vida/{persona.Id}/editor")">
+                    <span>
+                        <strong>@persona.NombreCompleto</strong>
+                        <small>@(string.IsNullOrWhiteSpace(persona.TituloAcademico) ? "Sin título" : persona.TituloAcademico)</small>
+                    </span>
+                    <span class="distintivo">v@(persona.Version)</span>
+                </a>
+            </li>
+        }
+    </ul>
+}
+
+<Modal Visible="_alta" Titulo="Nueva persona" AlCerrar="CerrarAlta">
+    <ChildContent>
+        <CampoFormulario Id="nueva-nombre" Etiqueta="Nombres y apellidos" @bind-Valor="_nombre" />
+        <CampoFormulario Id="nueva-titulo" Etiqueta="Título académico" @bind-Valor="_titulo" />
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="CerrarAlta">Cancelar</Boton>
+        <Boton Deshabilitado="@string.IsNullOrWhiteSpace(_nombre)" AlActivar="CrearAsync">Crear</Boton>
+    </Pie>
+</Modal>
+
+@code {
+    private IReadOnlyList<HojaVidaResumenDto> _personas = [];
+    private string _busqueda = "";
+    private bool _cargando = true;
+    private bool _alta;
+    private string _nombre = "";
+    private string _titulo = "";
+    private string? _error;
+
+    private IReadOnlyList<HojaVidaResumenDto> Filtradas =>
+        _personas.Where(item =>
+            string.IsNullOrWhiteSpace(_busqueda)
+            || item.NombreCompleto.Contains(_busqueda, StringComparison.OrdinalIgnoreCase)
+            || item.TituloAcademico.Contains(_busqueda, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _personas = await Cliente.ListarAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cargar el listado.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void AbrirAlta()
+    {
+        _nombre = "";
+        _titulo = "";
+        _alta = true;
+    }
+
+    private void CerrarAlta() => _alta = false;
+
+    private async Task CrearAsync()
+    {
+        try
+        {
+            var creada = await Cliente.CrearAsync(new CrearHojaVidaDto
+            {
+                NombreCompleto = _nombre.Trim(),
+                TituloAcademico = _titulo.Trim()
+            });
+            Navegacion.NavigateTo($"/estudios-clinicos/hojas-de-vida/{creada.Id}/editor");
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo crear la persona.";
+            _alta = false;
+        }
+    }
+}

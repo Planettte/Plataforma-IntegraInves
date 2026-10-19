@@ -1,0 +1,20 @@
+@if (_area is null)
+{
+    <EstadoError Titulo="Área no disponible" Mensaje="No se encontró la sección solicitada." />
+}
+else
+{
+    <ColumnaArea Area="_area" />
+}
+
+@code {
+    [Parameter] public string Ruta { get; set; } = "";
+
+    private ElementoNavegacion? _area;
+
+    protected override void OnParametersSet()
+    {
+        _area = CatalogoNavegacion.Principal.FirstOrDefault(item =>
+            string.Equals(item.Ruta, Ruta, StringComparison.OrdinalIgnoreCase));
+    }
+}

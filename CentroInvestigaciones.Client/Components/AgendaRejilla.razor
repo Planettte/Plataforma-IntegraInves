@@ -1,0 +1,84 @@
+<div class="agenda-rejilla-marco">
+    @if (Columnas.Count == 0)
+    {
+        <p class="texto-suave">No hay registros de médicos este día.</p>
+    }
+    else
+    {
+        <div class="agenda-rejilla" style="--columnas: @Columnas.Count">
+            <span class="agenda-esquina"></span>
+            @foreach (var persona in Columnas)
+            {
+                <div class="agenda-columna-titulo">
+                    <i style="background: @PresentacionAgenda.Color(persona)"></i>
+                    <span>@persona</span>
+                </div>
+            }
+            @foreach (var hora in HorasVisibles)
+            {
+                <span class="agenda-hora-etiqueta">@hora</span>
+                @foreach (var persona in Columnas)
+                {
+                    var citas = CitasDe(persona, HoraNumero(hora));
+                    <div class="agenda-celda">
+                        @foreach (var cita in citas)
+                        {
+                            var color = PresentacionAgenda.Color(cita.Persona);
+                            @if (AlEditar.HasDelegate)
+                            {
+                                <button type="button" class="agenda-registro" style="border-left-color: @color; background: color-mix(in srgb, @color 18%, var(--superficie))" @onclick="() => AlEditar.InvokeAsync(cita)">
+                                    <strong>@cita.HoraInicio – @cita.HoraFin</strong>
+                                    <span>@PresentacionAgenda.Titulo(cita)</span>
+                                    <small>@(cita.Tipo == "otros" ? "Otros" : "Registro")</small>
+                                </button>
+                            }
+                            else
+                            {
+                                <article class="agenda-registro" style="border-left-color: @color; background: color-mix(in srgb, @color 18%, var(--superficie))">
+                                    <strong>@cita.HoraInicio – @cita.HoraFin</strong>
+                                    <span>@PresentacionAgenda.Titulo(cita)</span>
+                                    <small>@(cita.Tipo == "otros" ? "Otros" : "Registro")</small>
+                                </article>
+                            }
+                        }
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly string[] Horas =
+    [
+        "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
+        "12:00", "13:00", "14:00", "15:00", "16:00"
+    ];
+
+    [Parameter] public IReadOnlyList<CitaAgendaDto> Citas { get; set; } = [];
+
+    [Parameter] public EventCallback<CitaAgendaDto> AlEditar { get; set; }
+
+    private IReadOnlyList<string> Columnas =>
+        Citas.Select(cita => cita.Persona)
+            .Where(nombre => !string.IsNullOrWhiteSpace(nombre))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(nombre => nombre, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private IReadOnlyList<string> HorasVisibles =>
+        Horas.Where(hora => Columnas.Any(persona => CitasDe(persona, HoraNumero(hora)).Count > 0)).ToList();
+
+    private List<CitaAgendaDto> CitasDe(string persona, int hora) =>
+        Citas.Where(cita =>
+            string.Equals(cita.Persona, persona, StringComparison.OrdinalIgnoreCase)
+            && HoraNumero(cita.HoraInicio) == hora)
+            .OrderBy(cita => cita.HoraInicio)
+            .ToList();
+
+    private static int HoraNumero(string texto)
+    {
+        var parte = texto.Split(':')[0];
+        return int.TryParse(parte, out var hora) ? hora : -1;
+    }
+}

@@ -1,0 +1,192 @@
+@using System.Text.Json
+@inject ClienteNucleo Nucleo
+@inject IJSRuntime Js
+
+<div class="campana">
+    <button type="button" class="boton boton-secundario boton-barra" @onclick="Alternar" aria-label="Notificaciones" aria-expanded="@_abierta">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V10.5a6 6 0 1 1 12 0V16l1.5 2h-15z" /><path d="M10 19.5a2 2 0 0 0 4 0" /></svg>
+        @if (SinVer > 0)
+        {
+            <span class="campana-cuenta">@SinVer</span>
+        }
+    </button>
+    @if (_abierta)
+    {
+        <button type="button" class="campana-velo" @onclick="Cerrar" aria-label="Cerrar notificaciones"></button>
+        <div class="campana-panel">
+            <strong>Notificaciones</strong>
+            @if (_error is not null)
+            {
+                <p>@_error</p>
+            }
+            else if (_avisos.Count == 0)
+            {
+                <p>No tienes notificaciones.</p>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var aviso in _avisos)
+                    {
+                        <li class="@(aviso.Vista ? "vista" : null)" @onmouseover="() => VerAsync(aviso)">
+                            @if (!string.IsNullOrWhiteSpace(aviso.Enlace))
+                            {
+                                <a href="@aviso.Enlace" @onclick="Cerrar">
+                                    <strong>@aviso.Titulo</strong>
+                                    <span>@aviso.Mensaje</span>
+                                </a>
+                            }
+                            else
+                            {
+                                <strong>@aviso.Titulo</strong>
+                                <span>@aviso.Mensaje</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan Vigencia = TimeSpan.FromDays(2);
+
+    private bool _abierta;
+    private string? _error;
+    private readonly HashSet<Guid> _marcando = [];
+    private List<RecuerdoVista> _locales = [];
+    private IReadOnlyList<NotificacionDto> _avisos = [];
+
+    private int SinVer => _avisos.Count(aviso => !aviso.Vista);
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task Alternar()
+    {
+        _abierta = !_abierta;
+        if (_abierta)
+        {
+            await CargarAsync();
+        }
+    }
+
+    private void Cerrar() => _abierta = false;
+
+    private async Task VerAsync(NotificacionDto aviso)
+    {
+        if (aviso.Vista || aviso.Id is not Guid id || !_marcando.Add(id))
+        {
+            return;
+        }
+
+        aviso.Vista = true;
+        Recordar(id);
+        await GuardarLocalAsync();
+        try
+        {
+            await Nucleo.MarcarVistaAsync(id);
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            await LeerLocalAsync();
+            var lista = await Nucleo.ListarTableroAsync();
+            var avisos = lista.Where(aviso => aviso.Origen != "Sistema").ToList();
+            var pendientes = new List<Guid>();
+            foreach (var aviso in avisos)
+            {
+                if (aviso.Id is not Guid id)
+                {
+                    continue;
+                }
+
+                if (aviso.Vista)
+                {
+                    Recordar(id);
+                    continue;
+                }
+
+                if (_locales.Any(item => item.Id == id) || _marcando.Contains(id))
+                {
+                    aviso.Vista = true;
+                    pendientes.Add(id);
+                }
+            }
+
+            _avisos = avisos;
+            await GuardarLocalAsync();
+            _error = null;
+            foreach (var id in pendientes.Distinct())
+            {
+                if (!_marcando.Add(id))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await Nucleo.MarcarVistaAsync(id);
+                }
+                catch (HttpRequestException)
+                {
+                    _marcando.Remove(id);
+                }
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudieron cargar las notificaciones.";
+        }
+    }
+
+    private void Recordar(Guid id)
+    {
+        var existente = _locales.FirstOrDefault(item => item.Id == id);
+        if (existente is null)
+        {
+            _locales.Add(new RecuerdoVista { Id = id, Utc = DateTime.UtcNow });
+        }
+    }
+
+    private async Task LeerLocalAsync()
+    {
+        try
+        {
+            var texto = await Js.InvokeAsync<string>("centroVistos.leer");
+            _locales = JsonSerializer.Deserialize<List<RecuerdoVista>>(texto, Json) ?? [];
+        }
+        catch (Exception excepcion) when (excepcion is JSException or JsonException)
+        {
+            _locales = [];
+        }
+
+        var limite = DateTime.UtcNow.Subtract(Vigencia);
+        _locales.RemoveAll(item => item.Utc < limite);
+    }
+
+    private async Task GuardarLocalAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("centroVistos.guardar", JsonSerializer.Serialize(_locales, Json));
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private sealed class RecuerdoVista
+    {
+        public Guid Id { get; set; }
+
+        public DateTime Utc { get; set; }
+    }
+}

@@ -1,0 +1,16 @@
+<article class="indicador">
+    <p>@Etiqueta</p>
+    <strong>@Valor</strong>
+    @if (!string.IsNullOrWhiteSpace(Detalle))
+    {
+        <span>@Detalle</span>
+    }
+</article>
+
+@code {
+    [Parameter] public string Etiqueta { get; set; } = "";
+
+    [Parameter] public string Valor { get; set; } = "";
+
+    [Parameter] public string? Detalle { get; set; }
+}

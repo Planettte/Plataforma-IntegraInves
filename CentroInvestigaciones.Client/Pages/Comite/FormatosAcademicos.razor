@@ -1,0 +1,402 @@
+@using System.Globalization
+@inject ClienteEstudios Cliente
+@inject IJSRuntime Js
+
+<section class="hoja">
+    <h3>Formatos</h3>
+    <p>Completa los campos resaltados dentro de cada documento y, si aplica, sube la firma.</p>
+    <div class="pestanas-formato" role="tablist">
+        @foreach (var item in _pestanas)
+        {
+            <button type="button" class="@(item.Id == _activo ? "activa" : "")" @onclick="() => _activo = item.Id">@item.Nombre</button>
+        }
+    </div>
+
+    @if (_activo == 1)
+    {
+        <Firma Etiqueta="Firma del investigador principal" AlCambiar="RecibirCarta" />
+        <article class="formato-papel">
+            <Cabecera ConFecha="true" />
+            <p><strong>COMITÉ DE INVESTIGACIÓN</strong><br />Fundación Oftalmológica de Santander - FOSCAL</p>
+            <p><strong>Asunto:</strong> Carta de Solicitud de Evaluación y Aprobación del Protocolo, Proyecto o Programa
+                <input class="campo-en-linea ancho" placeholder="nombre del protocolo, proyecto o programa" @bind="Carta.Protocolo" @bind:event="oninput" />
+                ante el Comité de Investigación de la FOSCAL.</p>
+            <p>Respetados señores:</p>
+            <p>La presente para solicitar la evaluación y aprobación de los documentos adjuntos relacionados con el Protocolo, Proyecto o Programa:</p>
+            <p>• Protocolo (versión: <input class="campo-en-linea" placeholder="versión" @bind="Carta.VersionProtocolo" @bind:event="oninput" />,
+                fecha: <input class="campo-en-linea" placeholder="dd/mm/aaaa" @bind="Carta.FechaProtocolo" @bind:event="oninput" />,
+                idioma(s): <input class="campo-en-linea" placeholder="español" @bind="Carta.IdiomaProtocolo" @bind:event="oninput" />)</p>
+            <p>• Consentimiento (versión: <input class="campo-en-linea" placeholder="versión" @bind="Carta.VersionConsentimiento" @bind:event="oninput" />,
+                fecha: <input class="campo-en-linea" placeholder="dd/mm/aaaa" @bind="Carta.FechaConsentimiento" @bind:event="oninput" />,
+                idioma(s): <input class="campo-en-linea" placeholder="español" @bind="Carta.IdiomaConsentimiento" @bind:event="oninput" />) — <em>si aplica</em></p>
+            <p>• Instrumentos de recolección (versión: <input class="campo-en-linea" placeholder="versión" @bind="Carta.VersionInstrumentos" @bind:event="oninput" />,
+                fecha: <input class="campo-en-linea" placeholder="dd/mm/aaaa" @bind="Carta.FechaInstrumentos" @bind:event="oninput" />)</p>
+            <p>Quedo atento a cualquier inquietud adicional con relación a la documentación presentada o la investigación en referencia en general.</p>
+            <p>Atentamente,</p>
+            <ImagenFirma Src="@_vistaCarta" />
+            <p><input class="campo-en-linea ancho" placeholder="nombre completo del investigador principal" @bind="Carta.Nombre" @bind:event="oninput" /><br />Investigador Principal</p>
+        </article>
+    }
+    else if (_activo == 2)
+    {
+        <Firma Etiqueta="Firma del investigador principal" AlCambiar="RecibirIntencion" />
+        <article class="formato-papel">
+            <Cabecera ConFecha="true" />
+            <p>Señores<br /><strong>División de Investigación</strong><br /><strong>Subdirección de Investigación, Innovación y Educación</strong><br />Fundación Oftalmológica de Santander - FOSCAL</p>
+            <p><strong>Título del Protocolo:</strong> <input class="campo-en-linea ancho" placeholder="título del protocolo" @bind="Intencion.TituloProtocolo" @bind:event="oninput" /></p>
+            <p>Me dirijo a Uds. a fin de solicitar la autorización para iniciar las actividades y procedimientos de investigación correspondiente al protocolo en referencia, una vez aprobado por el Comité de Investigación y/o el Comité de Ética en Investigación respectivo de la Clínica FOSCAL.</p>
+            <p>Como Investigador Principal me responsabilizo a respetar y hacer respetar las normas éticas de investigación en seres humanos, con base a los valores y principios éticos fundamentales universalmente proclamados en el Código de Nuremberg y la Declaración de Helsinki, incluyendo las pautas y garantías definidas por la Guías de Buenas Prácticas Clínicas (GCP) y la armonización internacional (ICH), y por las normas constitucionales, legales y reglamentarias vigentes.</p>
+            <p>Como Investigador Principal certifico que no tengo ninguna situación de conflicto de interés real, potencial o evidente, incluyendo ningún interés financiero o de otro tipo en, y/u otra relación con los resultados de la investigación a desarrollar.</p>
+            <p>Me comprometo a no iniciar el desarrollo del protocolo en referencia hasta contar con la respectiva autorización del Comité de Investigaciones, el Comité de Ética de Investigación respectivo y de los entes regulatorios que apliquen, ni empezar con el enrolamiento de participantes y/o de recolección de información relacionado.</p>
+            <p>Finalmente, presentaré los informes anuales de los avances de la investigación, comunicación de la culminación del estudio, suspensión, cancelación y enviaré toda aquella documentación que los Comités Institucionales requieran para evaluar la continuidad del protocolo de investigación.</p>
+            <p>Sin otro particular,</p>
+            <ImagenFirma Src="@_vistaIntencion" />
+            <p><input class="campo-en-linea ancho" placeholder="nombre completo del investigador principal" @bind="Intencion.Nombre" @bind:event="oninput" /><br />Investigador Principal</p>
+        </article>
+    }
+    else if (_activo == 3)
+    {
+        <Firma Etiqueta="Firma del investigador" AlCambiar="RecibirAcuerdo" />
+        <article class="formato-papel">
+            <Cabecera ConFecha="true" />
+            <p><strong>ACUERDO DE CONFIDENCIALIDAD PARA INVESTIGADORES Y COINVESTIGADORES RELACIONADOS CON PROCESOS DE INVESTIGACIÓN BIOMÉDICA</strong></p>
+            <p>Yo <input class="campo-en-linea ancho" placeholder="nombre completo" @bind="Acuerdo.Nombre" @bind:event="oninput" />
+                en mi rol como
+                <select class="campo-en-linea" @bind="Acuerdo.Rol">
+                    <option value="">rol…</option>
+                    <option>INVESTIGADOR PRINCIPAL</option>
+                    <option>CO-INVESTIGADOR</option>
+                    <option>SUBINVESTIGADOR</option>
+                </select>,
+                identificado/a con la cédula de ciudadanía No. <input class="campo-en-linea" placeholder="número" @bind="Acuerdo.Cedula" @bind:event="oninput" />
+                de <input class="campo-en-linea" placeholder="ciudad de expedición" @bind="Acuerdo.Expedicion" @bind:event="oninput" />,
+                perteneciente o adscrito a la División de Investigación de la Fundación Oftalmológica de Santander (FOSCAL), hago constar, en relación con el protocolo titulado
+                <input class="campo-en-linea ancho" placeholder="título del protocolo" @bind="Acuerdo.Protocolo" @bind:event="oninput" />,
+                me comprometo a custodiar y mantener la confidencialidad, la privacidad y no hacer un uso inadecuado de los documentos, registros, reportes, estudios, archivos físicos y/o electrónicos recolectados, estadísticas, cualquier otro registro o información relacionada con el estudio referenciado a mi cargo.</p>
+            <p>Además de las obligaciones que emanan de la naturaleza del acuerdo del que da cuenta el presente instrumento y en calidad de receptor de la información confidencial estaré obligado a:</p>
+            <p>• Mantener la información confidencial en estricta reserva y no revelar ningún dato de la información a ninguna otra parte, relacionada o no, sin el consentimiento previo escrito de la FOSCAL.<br />
+                • Instruir al personal que estará encargado de recibir la información confidencial, debiendo suscribir el correspondiente acuerdo de confidencialidad si fuere necesario.<br />
+                • Divulgar la información confidencial únicamente a las personas autorizadas para su recepción dentro de la organización.<br />
+                • Tratar confidencialmente toda la información recibida directa o indirectamente de la FOSCAL, y no utilizar ningún dato de esa información de ninguna manera distinta al propósito del presente acuerdo.<br />
+                • No manejar, usar, explotar, o divulgar la información confidencial a ninguna persona o entidad por ningún motivo en contravención a lo dispuesto en este instrumento, salvo que sea expresamente autorizado por escrito a hacerlo por la FOSCAL.</p>
+            <p>En caso de no dar cumplimiento a las disposiciones establecidas en la Ley 1581 de 2012 relativa a la protección de datos personales, la Fundación Oftalmológica de Santander - FOSCAL procederá acorde a las sanciones civiles, penales o administrativas que procedan conforme la normatividad vigente.</p>
+            <ImagenFirma Src="@_vistaAcuerdo" />
+            <p><input class="campo-en-linea ancho" placeholder="nombre completo" @bind="Acuerdo.NombreFirma" @bind:event="oninput" /><br />Investigador(a)</p>
+        </article>
+    }
+    else if (_activo == 4)
+    {
+        <Firma Etiqueta="Firma" AlCambiar="RecibirRegistro" />
+        <article class="formato-papel">
+            <Cabecera Titulo="FORMULARIO DE REGISTRO PARA INVESTIGADORES" />
+            <table>
+                <tr><td class="formato-seccion" colspan="2">Información personal</td></tr>
+                <tr>
+                    <td><div class="etiqueta">Nombre(s)</div><input class="campo-en-linea ancho" placeholder="nombre(s)" @bind="Registro.Nombres" @bind:event="oninput" /></td>
+                    <td><div class="etiqueta">Apellido(s)</div><input class="campo-en-linea ancho" placeholder="apellido(s)" @bind="Registro.Apellidos" @bind:event="oninput" /></td>
+                </tr>
+                <tr>
+                    <td><div class="etiqueta">Títulos académicos (MD, BSc, MSc, PhD…)</div><input class="campo-en-linea ancho" placeholder="MD, BSc, MSc…" @bind="Registro.Titulos" @bind:event="oninput" /></td>
+                    <td><div class="etiqueta">Correo electrónico</div><input class="campo-en-linea ancho" placeholder="correo@ejemplo.com" @bind="Registro.Correo" @bind:event="oninput" /></td>
+                </tr>
+                <tr><td colspan="2"><div class="etiqueta">Nombre de la institución</div><input class="campo-en-linea ancho" placeholder="nombre de la institución" @bind="Registro.Institucion" @bind:event="oninput" /></td></tr>
+                <tr><td colspan="2"><div class="etiqueta">Dirección completa (ciudad, departamento, país)</div><input class="campo-en-linea ancho" placeholder="ciudad, departamento, país" @bind="Registro.Direccion" @bind:event="oninput" /></td></tr>
+                <tr>
+                    <td><div class="etiqueta">Número telefónico</div><input class="campo-en-linea" placeholder="teléfono" @bind="Registro.Telefono" @bind:event="oninput" /></td>
+                    <td><div class="etiqueta">Número de celular</div><input class="campo-en-linea" placeholder="celular" @bind="Registro.Celular" @bind:event="oninput" /></td>
+                </tr>
+                <tr><td class="formato-seccion" colspan="2">Formación académica</td></tr>
+                <tr><td colspan="2"><div class="etiqueta">Institución — Título obtenido — Año</div><textarea class="campo-bloque" placeholder="Institución — Título obtenido — Año (una línea por registro)" @bind="Registro.Formacion" @bind:event="oninput"></textarea></td></tr>
+                <tr><td class="formato-seccion" colspan="2">Filiación institucional</td></tr>
+                <tr><td colspan="2"><div class="etiqueta">Servicio en el que labora (solo colaboradores FOSCAL)</div><input class="campo-en-linea ancho" placeholder="servicio / filiación" @bind="Registro.Servicio" @bind:event="oninput" /></td></tr>
+                <tr><td class="formato-seccion" colspan="2">Experiencia en investigación</td></tr>
+                <tr><td colspan="2"><div class="etiqueta">Nombre de la investigación — Rol — Año</div><textarea class="campo-bloque" placeholder="Nombre del estudio — Rol — Año (una línea por registro)" @bind="Registro.Experiencia" @bind:event="oninput"></textarea></td></tr>
+                <tr><td class="formato-seccion" colspan="2">Publicaciones científicas</td></tr>
+                <tr><td colspan="2"><div class="etiqueta">Referencia — Enlace — Revista</div><textarea class="campo-bloque" placeholder="Referencia — Enlace — Revista (una línea por registro)" @bind="Registro.Publicaciones" @bind:event="oninput"></textarea></td></tr>
+            </table>
+            <ImagenFirma Src="@_vistaRegistro" />
+            <p><strong>@(string.IsNullOrWhiteSpace($"{Registro.Nombres} {Registro.Apellidos}".Trim()) ? "—" : $"{Registro.Nombres} {Registro.Apellidos}".Trim())</strong></p>
+        </article>
+    }
+    else if (_activo == 5)
+    {
+        <Firma Etiqueta="Firma" AlCambiar="RecibirHoja" />
+        <article class="formato-papel">
+            <Cabecera Titulo="HOJA DE VIDA" />
+            <table>
+                <tr><td class="formato-seccion" colspan="2">Información personal</td></tr>
+                <tr>
+                    <td><div class="etiqueta">Nombres y apellidos (como aparecen en el documento de identidad)</div><input class="campo-en-linea ancho" placeholder="nombres y apellidos" @bind="Hoja.Nombre" @bind:event="oninput" /></td>
+                    <td><div class="etiqueta">Títulos académicos (MD, BSc, MSc…)</div><input class="campo-en-linea ancho" placeholder="MD, BSc, MSc…" @bind="Hoja.Titulos" @bind:event="oninput" /></td>
+                </tr>
+                <tr><td colspan="2"><div class="etiqueta">Dirección institucional</div><input class="campo-en-linea ancho" placeholder="institución, dirección, ciudad, país" @bind="Hoja.Direccion" @bind:event="oninput" /></td></tr>
+                <tr>
+                    <td><div class="etiqueta">Número telefónico</div><input class="campo-en-linea" placeholder="teléfono" @bind="Hoja.Telefono" @bind:event="oninput" /></td>
+                    <td><div class="etiqueta">Número de FAX</div><input class="campo-en-linea" placeholder="NA si no aplica" @bind="Hoja.Fax" @bind:event="oninput" /></td>
+                </tr>
+                <tr><td class="formato-seccion" colspan="2">Información académica</td></tr>
+                <tr><td colspan="2">
+                    <div class="etiqueta">Educación y entrenamiento — Pregrados y postgrados (comience por el título más reciente)<br />Institución (ciudad, departamento, país) — Título obtenido y año — Área de estudios</div>
+                    <textarea class="campo-bloque" placeholder="Institución (ciudad, país) — Título — Año — Área (del más reciente al más antiguo)" @bind="Hoja.Academica" @bind:event="oninput"></textarea>
+                </td></tr>
+                <tr><td class="formato-seccion" colspan="2">Experiencia laboral</td></tr>
+                <tr><td colspan="2">
+                    <div class="etiqueta">Posición (comience por la más actual) — Institución (ciudad, departamento, país) — Fechas</div>
+                    <textarea class="campo-bloque" placeholder="Posición — Institución (ciudad, país) — Fechas" @bind="Hoja.Laboral" @bind:event="oninput"></textarea>
+                </td></tr>
+                <tr><td class="formato-seccion" colspan="2">Experiencia en investigación</td></tr>
+                <tr><td colspan="2">
+                    <div class="etiqueta">Indicación del estudio — Fase clínica — Papel dentro de la investigación — Año</div>
+                    <textarea class="campo-bloque" placeholder="Indicación — Fase clínica — Rol — Año" @bind="Hoja.Investigacion" @bind:event="oninput"></textarea>
+                </td></tr>
+                <tr><td class="formato-seccion" colspan="2">Entrenamiento ICH / GCP</td></tr>
+                <tr>
+                    <td colspan="2">
+                        <div class="etiqueta">Entrenamiento en Buenas Prácticas Clínicas (adjuntar certificado si aplica)</div>
+                        <select class="campo-en-linea" @bind="Hoja.Gcp">
+                            <option value="">Seleccionar…</option>
+                            <option>Sí (adjuntar certificado)</option>
+                            <option>No</option>
+                        </select>
+                    </td>
+                </tr>
+            </table>
+            <ImagenFirma Src="@_vistaHoja" />
+            <p><strong>@(string.IsNullOrWhiteSpace(Hoja.Nombre) ? "—" : Hoja.Nombre)</strong> &nbsp;&nbsp; Fecha: @DateTime.Now.ToString("dd/MM/yyyy")</p>
+        </article>
+    }
+    else
+    {
+        <article class="formato-papel">
+            <Cabecera Titulo="RESUMEN ANALÍTICO CENTRO DE INVESTIGACIONES FOSCAL" />
+            <p class="formato-version">GID-INV-FO-02</p>
+            <table>
+                <tr><td class="formato-seccion" colspan="2">Identificación del proyecto</td></tr>
+                <tr><td>TÍTULO</td><td><input class="campo-en-linea ancho" placeholder="título del proyecto" @bind="Resumen.Titulo" @bind:event="oninput" /></td></tr>
+                <tr><td>LINEA DE INVESTIGACIÓN</td><td><input class="campo-en-linea ancho" placeholder="línea de investigación" @bind="Resumen.Linea" @bind:event="oninput" /></td></tr>
+                <tr><td>GRUPO DE INVESTIGACIÓN</td><td><input class="campo-en-linea ancho" placeholder="grupo de investigación" @bind="Resumen.Grupo" @bind:event="oninput" /></td></tr>
+                <tr><td>ÁREA O SERVICIO O PROGRAMA</td><td><input class="campo-en-linea ancho" placeholder="área, servicio o programa" @bind="Resumen.Area" @bind:event="oninput" /></td></tr>
+                <tr><td rowspan="3">INSTITUCIÓN(ES) PARTICIPANTE(S)</td><td><input class="campo-en-linea ancho" placeholder="institución 1" @bind="Resumen.Institucion1" @bind:event="oninput" /></td></tr>
+                <tr><td><input class="campo-en-linea ancho" placeholder="institución 2" @bind="Resumen.Institucion2" @bind:event="oninput" /></td></tr>
+                <tr><td><input class="campo-en-linea ancho" placeholder="institución 3" @bind="Resumen.Institucion3" @bind:event="oninput" /></td></tr>
+                <tr><td>AÑO DE RESIDENCIA DEL INVESTIGADOR PRINCIPAL <em>(SI APLICA)</em></td><td><input class="campo-en-linea" placeholder="año (si aplica)" @bind="Resumen.AnioResidencia" @bind:event="oninput" /></td></tr>
+                <tr><td class="formato-seccion" colspan="2">Información general de los investigadores <em>(Completar donde aplique)</em></td></tr>
+                <tr><td>NOMBRES Y APELLIDOS COMPLETOS</td><td>CARGO O ROL / INSTITUCIÓN</td></tr>
+                @foreach (var persona in Resumen.Investigadores)
+                {
+                    <tr>
+                        <td><input class="campo-en-linea ancho" placeholder="nombres y apellidos completos" @bind="persona.Nombre" @bind:event="oninput" /></td>
+                        <td><input class="campo-en-linea ancho" placeholder="cargo o rol — institución" @bind="persona.Rol" @bind:event="oninput" /></td>
+                    </tr>
+                }
+                <tr><td class="formato-seccion" colspan="2">Problema de investigación</td></tr>
+                <tr><td colspan="2">
+                    <div class="ayuda">Explicar brevemente el problema de investigación, puede ser formulado como la pregunta de investigación.</div>
+                    <textarea class="campo-bloque" placeholder="problema de investigación" @bind="Resumen.Problema" @bind:event="oninput"></textarea>
+                </td></tr>
+                <tr><td class="formato-seccion" colspan="2">Justificación</td></tr>
+                <tr><td colspan="2">
+                    <div class="ayuda">¿Porqué se requiere realizar la investigación? ¿Cuál es el impacto de la misma en términos de beneficiados y aportes para el paciente, la institución y la salud del departamento y del país?</div>
+                    <textarea class="campo-bloque" placeholder="justificación" @bind="Resumen.Justificacion" @bind:event="oninput"></textarea>
+                </td></tr>
+                <tr><td class="formato-seccion" colspan="2">Objetivos</td></tr>
+                <tr><td>GENERAL</td><td><input class="campo-en-linea ancho" placeholder="objetivo general" @bind="Resumen.ObjetivoGeneral" @bind:event="oninput" /></td></tr>
+                <tr><td rowspan="3">ESPECÍFICOS</td><td><input class="campo-en-linea ancho" placeholder="específico 1" @bind="Resumen.Objetivo1" @bind:event="oninput" /></td></tr>
+                <tr><td><input class="campo-en-linea ancho" placeholder="específico 2" @bind="Resumen.Objetivo2" @bind:event="oninput" /></td></tr>
+                <tr><td><input class="campo-en-linea ancho" placeholder="específico 3" @bind="Resumen.Objetivo3" @bind:event="oninput" /></td></tr>
+                <tr><td class="formato-seccion" colspan="2">Estado del arte</td></tr>
+                <tr><td colspan="2">
+                    <div class="ayuda">(Máximo 200 Palabras) Breve resumen de revisión de literatura científica actualizada del tema a investigar, antecedentes generales basándose en otros estudios y sus resultados.</div>
+                    <textarea class="campo-bloque" placeholder="estado del arte (máx. 200 palabras)" @bind="Resumen.EstadoArte" @bind:event="oninput"></textarea>
+                </td></tr>
+                <tr><td class="formato-seccion" colspan="2">Diseño metodológico</td></tr>
+                <tr><td>TIPO DE ESTUDIO DEL ESTUDIO</td><td><input class="campo-en-linea ancho" placeholder="tipo de estudio" @bind="Resumen.TipoEstudio" @bind:event="oninput" /></td></tr>
+                <tr><td>POBLACIÓN</td><td><input class="campo-en-linea ancho" placeholder="población" @bind="Resumen.Poblacion" @bind:event="oninput" /></td></tr>
+                <tr><td>TAMAÑO DE LA MUESTRA <em>(Incluir la fórmula de cálculo, resultado y justificación. Puede subir una imagen con las fórmulas y cálculos realizados)</em></td><td><textarea class="campo-bloque" placeholder="tamaño de la muestra, fórmula y justificación" @bind="Resumen.Muestra" @bind:event="oninput"></textarea></td></tr>
+                <tr><td>CRITERIOS INCLUSIÓN</td><td><textarea class="campo-bloque" placeholder="criterios de inclusión" @bind="Resumen.Inclusion" @bind:event="oninput"></textarea></td></tr>
+                <tr><td>CRITERIOS EXCLUSIÓN</td><td><textarea class="campo-bloque" placeholder="criterios de exclusión" @bind="Resumen.Exclusion" @bind:event="oninput"></textarea></td></tr>
+                <tr><td>PROCEDIMIENTOS PARA LA RECOLECCIÓN DE DATOS <em>(Completo no resumido y mencionar el mecanismo)</em></td><td><textarea class="campo-bloque" placeholder="procedimientos de recolección de datos" @bind="Resumen.Recoleccion" @bind:event="oninput"></textarea></td></tr>
+                <tr><td>ANÁLISIS DE DATOS</td><td><textarea class="campo-bloque" placeholder="análisis de datos" @bind="Resumen.Analisis" @bind:event="oninput"></textarea></td></tr>
+                <tr><td class="formato-seccion" colspan="2">Divulgación de los resultados de investigación</td></tr>
+                <tr><td colspan="2">
+                    <div class="ayuda">Describa los productos que entregará al Hospital como resultado de la investigación y la forma como se tiene previsto hacer su difusión (artículos, presentación en congresos oral o poster, libro de trabajo de grado, entre otros)</div>
+                    <textarea class="campo-bloque" placeholder="productos y forma de divulgación" @bind="Resumen.Divulgacion" @bind:event="oninput"></textarea>
+                </td></tr>
+            </table>
+            <table class="tabla-presupuesto">
+                <tr><td class="formato-seccion" colspan="5">Presupuesto estimado (en miles)</td></tr>
+                <tr>
+                    <td>ÍTEM</td>
+                    <td>DEDICACIÓN (horas)</td>
+                    <td>VALOR($)</td>
+                    <td>RESPONSABLE DEL FINANCIAMIENTO</td>
+                    <td>OBSERVACIONES</td>
+                </tr>
+                @foreach (var partida in Resumen.Presupuesto)
+                {
+                    <tr>
+                        <td>@partida.Item</td>
+                        <td><input class="campo-en-linea" placeholder="horas" @bind="partida.Horas" @bind:event="oninput" /></td>
+                        <td><input class="campo-en-linea" placeholder="$" @bind="partida.Valor" @bind:event="oninput" /></td>
+                        <td><input class="campo-en-linea" placeholder="responsable" @bind="partida.Responsable" @bind:event="oninput" /></td>
+                        <td><input class="campo-en-linea" placeholder="observaciones" @bind="partida.Observaciones" @bind:event="oninput" /></td>
+                    </tr>
+                }
+                <tr>
+                    <td>TOTAL</td>
+                    <td></td>
+                    <td><strong>@TotalPresupuesto</strong></td>
+                    <td colspan="2"></td>
+                </tr>
+            </table>
+            <table>
+                <tr><td class="formato-seccion" colspan="2">Cronograma</td></tr>
+                <tr>
+                    <td>FECHA DE INICIO DEL PROYECTO <em>(La fecha viene desde la construcción del proyecto)</em> DD/MM/AA</td>
+                    <td><input class="campo-en-linea" placeholder="dd/mm/aa" @bind="Resumen.FechaInicio" @bind:event="oninput" /></td>
+                </tr>
+            </table>
+            <table class="tabla-cronograma">
+                <tr>
+                    <td>ACTIVIDAD</td>
+                    <td>MES INICIAL</td>
+                    <td>MES FINAL</td>
+                </tr>
+                @for (var i = 0; i < Resumen.Cronograma.Count; i++)
+                {
+                    var actividad = Resumen.Cronograma[i];
+                    var n = i + 1;
+                    <tr>
+                        <td><input class="campo-en-linea ancho" placeholder="@($"actividad {n}")" @bind="actividad.Actividad" @bind:event="oninput" /></td>
+                        <td><input class="campo-en-linea" placeholder="mes" @bind="actividad.MesInicial" @bind:event="oninput" /></td>
+                        <td><input class="campo-en-linea" placeholder="mes" @bind="actividad.MesFinal" @bind:event="oninput" /></td>
+                    </tr>
+                }
+            </table>
+            <table>
+                <tr><td class="formato-seccion" colspan="2">Aspectos éticos</td></tr>
+                <tr>
+                    <td>CLASIFIQUE EL RIESGO SEGÚN LA RESOLUCIÓN 8430 DE 1993 <em>(Sin riesgo, Riesgo mínimo, riesgo mayor que el mínimo)</em></td>
+                    <td><input class="campo-en-linea ancho" placeholder="clasificación del riesgo" @bind="Resumen.Riesgo" @bind:event="oninput" /></td>
+                </tr>
+                <tr>
+                    <td>DESCRIBA BREVEMENTE LA FORMA EN QUE SE MANTENDRÁ LA CONFIDENCIALIDAD DE LA INFORMACIÓN DE LOS PACIENTES SI UTILIZA HISTORIAS CLÍNICAS Y/O BASES DE DATOS</td>
+                    <td><textarea class="campo-bloque" placeholder="forma de mantener la confidencialidad" @bind="Resumen.Confidencialidad" @bind:event="oninput"></textarea></td>
+                </tr>
+                <tr>
+                    <td>DESCRIBA BREVEMENTE LA FORMA EN QUE GARANTIZARÁ LA SEGURIDAD DE LOS DATOS UTILIZADOS</td>
+                    <td><textarea class="campo-bloque" placeholder="forma de garantizar la seguridad de los datos" @bind="Resumen.Seguridad" @bind:event="oninput"></textarea></td>
+                </tr>
+                <tr>
+                    <td>¿REQUIERE CONSENTIMIENTO INFORMADO? DE SER AFIRMATIVO, ANEXE MODELO A UTILIZAR</td>
+                    <td><input class="campo-en-linea ancho" placeholder="Sí / No — si sí, anexar modelo" @bind="Resumen.Consentimiento" @bind:event="oninput" /></td>
+                </tr>
+            </table>
+        </article>
+    }
+
+    <div class="formato-descarga">
+        <Boton Variante="secundario" Deshabilitado="_bajando" AlActivar="DescargarPdfAsync">Descargar PDF</Boton>
+        <p>Opcional. Es una copia de este formato por si quieres guardarla. No hace falta descargarlo para enviar el registro.</p>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(_avisoPdf))
+    {
+        <p class="campo-mensaje">@_avisoPdf</p>
+    }
+</section>
+
+@code {
+    private static readonly (int Id, string Nombre)[] _pestanas =
+    [
+        (1, "1. Carta solicitud CIF"),
+        (2, "2. Carta de intención"),
+        (3, "3. Acuerdo de confidencialidad"),
+        (4, "4. Formulario de registro"),
+        (5, "5. Hoja de vida"),
+        (6, "6. Resumen analítico")
+    ];
+
+    private int _activo = 1;
+    private bool _bajando;
+    private string? _avisoPdf;
+    private string? _vistaCarta;
+    private string? _vistaIntencion;
+    private string? _vistaAcuerdo;
+    private string? _vistaRegistro;
+    private string? _vistaHoja;
+
+    private Task RecibirCarta(string? valor) => Recibir(valor, v => _vistaCarta = v, AlFirmaCarta);
+
+    private Task RecibirIntencion(string? valor) => Recibir(valor, v => _vistaIntencion = v, AlFirmaIntencion);
+
+    private Task RecibirAcuerdo(string? valor) => Recibir(valor, v => _vistaAcuerdo = v, AlFirmaAcuerdo);
+
+    private Task RecibirRegistro(string? valor) => Recibir(valor, v => _vistaRegistro = v, AlFirmaRegistro);
+
+    private Task RecibirHoja(string? valor) => Recibir(valor, v => _vistaHoja = v, AlFirmaHoja);
+
+    private static async Task Recibir(string? valor, Action<string?> guardar, EventCallback<string?> avisar)
+    {
+        guardar(valor);
+        await avisar.InvokeAsync(valor);
+    }
+
+    private async Task DescargarPdfAsync()
+    {
+        _bajando = true;
+        _avisoPdf = null;
+        try
+        {
+            var (bytes, nombre) = await Cliente.VistaPreviaPdfAsync(Datos, _activo);
+            await Js.InvokeVoidAsync("centroArchivo.descargar", nombre, Convert.ToBase64String(bytes));
+        }
+        catch (HttpRequestException)
+        {
+            _avisoPdf = "No se pudo armar el PDF. Puedes seguir llenando el formato y enviarlo sin descargarlo.";
+        }
+        finally
+        {
+            _bajando = false;
+        }
+    }
+
+    [Parameter, EditorRequired] public FormatosAcademicosDto Formatos { get; set; } = new();
+    [Parameter, EditorRequired] public GuardarFase1EstudioDto Datos { get; set; } = new();
+
+    [Parameter] public string? FirmaCarta { get; set; }
+    [Parameter] public string? FirmaIntencion { get; set; }
+    [Parameter] public string? FirmaAcuerdo { get; set; }
+    [Parameter] public string? FirmaRegistro { get; set; }
+    [Parameter] public string? FirmaHoja { get; set; }
+
+    [Parameter] public EventCallback<string?> AlFirmaCarta { get; set; }
+    [Parameter] public EventCallback<string?> AlFirmaIntencion { get; set; }
+    [Parameter] public EventCallback<string?> AlFirmaAcuerdo { get; set; }
+    [Parameter] public EventCallback<string?> AlFirmaRegistro { get; set; }
+    [Parameter] public EventCallback<string?> AlFirmaHoja { get; set; }
+
+    private CartaSolicitudEstudioDto Carta => Formatos.CartaSolicitud;
+    private CartaIntencionEstudioDto Intencion => Formatos.CartaIntencion;
+    private AcuerdoConfidencialidadEstudioDto Acuerdo => Formatos.Acuerdo;
+    private FormularioRegistroEstudioDto Registro => Formatos.Registro;
+    private HojaVidaEstudioDto Hoja => Formatos.HojaVida;
+    private ResumenAnaliticoEstudioDto Resumen => Formatos.Resumen;
+
+    private string TotalPresupuesto
+    {
+        get
+        {
+            decimal total = 0;
+            foreach (var partida in Resumen.Presupuesto)
+            {
+                var texto = (partida.Valor ?? "").Replace("$", "").Replace(" ", "").Replace(".", "").Replace(",", ".");
+                if (decimal.TryParse(texto, NumberStyles.Number, CultureInfo.InvariantCulture, out var valor))
+                {
+                    total += valor;
+                }
+            }
+
+            return total.ToString("N0", new CultureInfo("es-CO"));
+        }
+    }
+}

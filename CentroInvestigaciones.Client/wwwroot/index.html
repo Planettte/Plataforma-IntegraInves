@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plataforma Centro de Investigaciones</title>
+    <base href="/" />
+    <script>
+        (function () {
+            try {
+                var guardado = localStorage.getItem("centro-tema") || "claro";
+                document.documentElement.setAttribute("data-tema", guardado);
+            } catch (e) { }
+        })();
+    </script>
+    <link rel="preload" id="webassembly" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/plataforma.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <script type="importmap"></script>
+</head>
+
+<body>
+    <div id="app">
+        <div class="arranque" role="status">
+            <span class="arranque-giro" aria-hidden="true"></span>
+            <p>Cargando la plataforma…</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        No se pudo continuar.
+        <a href="." class="reload">Recargar</a>
+        <button type="button" class="dismiss">Cerrar</button>
+    </div>
+    <script src="js/tema.js"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+</body>
+
+</html>

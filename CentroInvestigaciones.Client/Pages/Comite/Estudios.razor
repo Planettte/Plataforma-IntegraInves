@@ -1,0 +1,227 @@
+@page "/comite/estudios"
+@using System.Globalization
+@inject ClienteEstudios Cliente
+@inject NavigationManager Navegacion
+
+<PageTitle>Historial de estudios · Centro de Investigaciones</PageTitle>
+
+<div class="historial-cabecera">
+    <div>
+        <h2 class="titulo-con-icono"><span class="enlace-icono"><IconoHerramienta Nombre="estudio" /></span><span>Historial de estudios</span></h2>
+        <p>@TextoTotal</p>
+    </div>
+    <div class="historial-controles">
+        <label class="buscador-estudio">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" /><path d="M16.5 16.5 21 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+            <input class="entrada" placeholder="Buscar..." @bind="_busqueda" @bind:event="oninput" />
+        </label>
+        <div class="historial-controles-fila">
+            <select class="seleccion" @bind="_estado" @bind:after="SincronizarGrupo">
+                <option value="">Todos los estados</option>
+                <option value="@Recepcion">Recepción incompleta</option>
+                <option value="@Fase2">Fase 2 en revisión</option>
+                <option value="@Avalado">Aprobado por el Comité</option>
+                <option value="@Cei">Aprobado por el CEI</option>
+            </select>
+            <button type="button" class="boton-refrescar" aria-label="Actualizar" disabled="@_cargando" @onclick="CargarAsync">↻</button>
+        </div>
+    </div>
+</div>
+
+<div class="historial-enlace">
+    <span>Enlace para un registro nuevo</span>
+    <input class="entrada" readonly value="@EnlaceNuevo" />
+</div>
+
+@if (_cargando && _registros.Count == 0)
+{
+    <p class="cargando">Cargando registros…</p>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+else if (_registros.Count == 0)
+{
+    <p class="estado-vacio">Todavía no hay estudios.</p>
+}
+else
+{
+    <div class="pestanias-estudios" role="tablist">
+        <button type="button" class="pestania-estudio @(_tipo == "academico" ? "activa" : null)" @onclick='() => _tipo = "academico"'>
+            Estudios Académicos <span class="cuenta-pestania">@ContarTipo("academico")</span>
+        </button>
+        <button type="button" class="pestania-estudio @(_tipo == "clinico" ? "activa" : null)" @onclick='() => _tipo = "clinico"'>
+            Estudios Clínicos <span class="cuenta-pestania">@ContarTipo("clinico")</span>
+        </button>
+    </div>
+
+    <div class="resumen-estudios">
+        <button type="button" class="resumen-estudio @(GrupoActivo("") ? "activo" : null)" @onclick='() => ElegirGrupo("")'>
+            <small>Total</small>
+            <strong>@DelTipo.Count()</strong>
+        </button>
+        <button type="button" class="resumen-estudio aviso @(GrupoActivo("recepcion") ? "activo" : null)" @onclick='() => ElegirGrupo("recepcion")'>
+            <small>Recepción incompleta</small>
+            <strong>@ContarGrupo("recepcion")</strong>
+        </button>
+        <button type="button" class="resumen-estudio @(GrupoActivo("revision") ? "activo" : null)" @onclick='() => ElegirGrupo("revision")'>
+            <small>En revisión</small>
+            <strong>@ContarGrupo("revision")</strong>
+        </button>
+        <button type="button" class="resumen-estudio @(GrupoActivo("activos") ? "activo" : null)" @onclick='() => ElegirGrupo("activos")'>
+            <small>Activos / finalizados</small>
+            <strong>@ContarGrupo("activos")</strong>
+        </button>
+    </div>
+
+    @if (!Visibles.Any())
+    {
+        <p class="estado-vacio">Ningún estudio coincide con la búsqueda.</p>
+    }
+    else
+    {
+        <div class="rejilla-estudios">
+            @foreach (var item in Visibles)
+            {
+                <a class="tarjeta-estudio" href="@($"comite/estudios/{item.Id}")">
+                    <span class="tarjeta-estudio-meta">#@item.Conteo · @item.Anio</span>
+                    <h3>@item.Titulo</h3>
+                    <span class="tarjeta-estudio-persona">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M5.5 19.2c1.2-3 3.5-4.5 6.5-4.5s5.3 1.5 6.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+                        @item.InvestigadorPrincipal
+                    </span>
+                    <span class="tarjeta-estudio-pie">
+                        <span class="estado-estudio @ClaseEstado(item.Estado)">@EtiquetaEstado(item.Estado)</span>
+                        <span class="tarjeta-estudio-institucion">@item.Institucion</span>
+                    </span>
+                </a>
+            }
+        </div>
+    }
+}
+
+@code {
+    private const string Recepcion = "Recepción incompleta de documentos para el comité de investigaciones";
+    private const string Avalado = "Aprobado por el Comité de Investigaciones";
+    private const string Fase2 = "Documentos de la fase 2 en revisión";
+    private const string Cei = "Aprobado por el CEI";
+    private static readonly CultureInfo Cultura = CultureInfo.GetCultureInfo("es-CO");
+
+    private List<EstudioResumenDto> _registros = [];
+    private bool _cargando = true;
+    private string? _error;
+    private string _busqueda = "";
+    private string _tipo = "academico";
+    private string _estado = "";
+    private string _grupo = "";
+    private DateTime _cargado = DateTime.Now;
+
+    private IEnumerable<EstudioResumenDto> DelTipo => _registros.Where(item => item.TipoRegistro == _tipo);
+
+    private IEnumerable<EstudioResumenDto> Visibles => DelTipo.Where(Coincide);
+
+    private string EnlaceNuevo => Navegacion.ToAbsoluteUri("comite/estudios/externo").ToString();
+
+    private string TextoTotal
+    {
+        get
+        {
+            var cantidad = _registros.Count == 1 ? "1 registro" : $"{_registros.Count} registros";
+            return $"{cantidad} en total · {_cargado.ToString("g", Cultura)}";
+        }
+    }
+
+    private bool Coincide(EstudioResumenDto item)
+    {
+        if (!string.IsNullOrEmpty(_estado) && item.Estado != _estado)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(_grupo) && !EnGrupo(item, _grupo))
+        {
+            return false;
+        }
+
+        var texto = _busqueda.Trim();
+        return texto.Length == 0
+            || item.Titulo.Contains(texto, StringComparison.OrdinalIgnoreCase)
+            || item.InvestigadorPrincipal.Contains(texto, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private int ContarTipo(string tipo) => _registros.Count(item => item.TipoRegistro == tipo);
+
+    private int ContarGrupo(string grupo) => DelTipo.Count(item => EnGrupo(item, grupo));
+
+    private static bool EnGrupo(EstudioResumenDto item, string grupo) => grupo switch
+    {
+        "recepcion" => item.Estado == Recepcion,
+        "revision" => item.Estado == Fase2,
+        "activos" => item.Estado is Avalado or Cei,
+        _ => true
+    };
+
+    private bool GrupoActivo(string grupo) =>
+        grupo == "" ? _grupo == "" && _estado == "" : _grupo == grupo;
+
+    private void ElegirGrupo(string grupo)
+    {
+        if (grupo == _grupo && _estado == "" && grupo != "")
+        {
+            _grupo = "";
+            return;
+        }
+
+        _grupo = grupo;
+        _estado = "";
+    }
+
+    private void SincronizarGrupo()
+    {
+        _grupo = _estado switch
+        {
+            Recepcion => "recepcion",
+            Fase2 => "revision",
+            Avalado or Cei => "activos",
+            _ => ""
+        };
+    }
+
+    private static string EtiquetaEstado(string estado) => estado switch
+    {
+        Recepcion => "Recepción incompleta",
+        Fase2 => "Fase 2 en revisión",
+        Avalado => "Aprobado por el Comité de Investigaciones",
+        Cei => "Aprobado por el CEI",
+        _ => estado
+    };
+
+    private static string ClaseEstado(string estado) => estado switch
+    {
+        Recepcion => "aviso",
+        Avalado or Cei => "exito",
+        _ => ""
+    };
+
+    protected override async Task OnInitializedAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            _registros = (await Cliente.ListarAsync()).ToList();
+            _cargado = DateTime.Now;
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudieron cargar los estudios.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+}

@@ -1,0 +1,26 @@
+<div class="formato-cabecera">
+    <img src="img/logo-foscal-marca.png" alt="FOSCAL" />
+    <span>
+        @if (!string.IsNullOrWhiteSpace(Titulo))
+        {
+            <strong>@Titulo</strong><br />
+        }
+        @if (ConFecha)
+        {
+            <text>Floridablanca, <strong>@Fecha</strong><br /></text>
+        }
+        else
+        {
+            <text>Fundación Oftalmológica de Santander - FOSCAL<br /></text>
+        }
+        <span class="formato-version">Versión 1</span>
+    </span>
+</div>
+
+@code {
+    [Parameter] public string Titulo { get; set; } = "";
+
+    [Parameter] public bool ConFecha { get; set; }
+
+    private string Fecha => DateTime.Now.ToString("dd/MM/yyyy");
+}

@@ -1,0 +1,41 @@
+@inject NavigationManager Navegacion
+
+<PageTitle>@Titulo · Centro de Investigaciones</PageTitle>
+<header class="encabezado-pagina">
+    <h2 class="@(IconoVisible is null ? null : "titulo-con-icono")">
+        @if (IconoVisible is not null)
+        {
+            <span class="icono-solido"><IconoHerramienta Nombre="@IconoVisible" /></span>
+        }
+        <span>@Titulo</span>
+    </h2>
+    @if (!string.IsNullOrWhiteSpace(Descripcion))
+    {
+        <p>@Descripcion</p>
+    }
+</header>
+
+@code {
+    [Parameter] public string Titulo { get; set; } = "";
+
+    [Parameter] public string? Descripcion { get; set; }
+
+    [Parameter] public string? Icono { get; set; }
+
+    private string? IconoVisible => string.IsNullOrWhiteSpace(Icono) ? IconoDeLaRuta() : Icono;
+
+    private string? IconoDeLaRuta()
+    {
+        var ruta = "/" + Navegacion.ToBaseRelativePath(Navegacion.Uri).Split('?')[0].Trim('/');
+        if (ruta == "/")
+        {
+            return null;
+        }
+
+        return CatalogoNavegacion.Herramientas
+            .Where(item => item.Icono is not null && (ruta.Equals(item.Ruta, StringComparison.OrdinalIgnoreCase) || ruta.StartsWith(item.Ruta + "/", StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(item => item.Ruta.Length)
+            .Select(item => item.Icono)
+            .FirstOrDefault();
+    }
+}

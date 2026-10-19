@@ -1,0 +1,27 @@
+@inject NavigationManager Navegacion
+
+@if (_encontrado is null)
+{
+    <EstadoError Titulo="Página no encontrada" Mensaje="La dirección no corresponde a una sección de la plataforma." />
+}
+else
+{
+    <ModuloPendiente Titulo="@_encontrado.Value.Elemento.Titulo"
+                     Descripcion="@(_encontrado.Value.Area?.Titulo ?? _encontrado.Value.Elemento.Descripcion)"
+                     Mensaje="@_mensaje" />
+}
+
+@code {
+    private (ElementoNavegacion Elemento, ElementoNavegacion? Area)? _encontrado;
+    private string _mensaje = CatalogoNavegacion.MensajeHerramienta;
+
+    protected override void OnParametersSet()
+    {
+        var relativo = Navegacion.ToBaseRelativePath(Navegacion.Uri).Split('?')[0].Trim('/');
+        var ruta = string.IsNullOrEmpty(relativo) ? "/" : "/" + relativo;
+        _encontrado = CatalogoNavegacion.Buscar(ruta);
+        _mensaje = ruta.StartsWith("/administracion", StringComparison.OrdinalIgnoreCase)
+            ? _encontrado?.Elemento.Descripcion ?? "Esta sección sigue pendiente de definición."
+            : CatalogoNavegacion.MensajeHerramienta;
+    }
+}

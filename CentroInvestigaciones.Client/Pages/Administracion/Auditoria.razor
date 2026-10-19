@@ -1,0 +1,67 @@
+@page "/administracion/auditoria"
+@inject ClienteNucleo Nucleo
+
+<EncabezadoPagina Titulo="Auditoría" Descripcion="Acciones relevantes registradas en el servidor." />
+
+@if (_error is not null)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+else if (_cargando)
+{
+    <Cargando />
+}
+else if (_pagina.Elementos.Count == 0)
+{
+    <EstadoVacio Mensaje="Todavía no hay eventos." />
+}
+else
+{
+    <div class="tabla-contenedor">
+        <table>
+            <thead>
+                <tr>
+                    <th>Cuándo</th>
+                    <th>Quién</th>
+                    <th>Acción</th>
+                    <th>Entidad</th>
+                    <th>Resultado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var evento in _pagina.Elementos)
+                {
+                    <tr>
+                        <td>@evento.FechaUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@(evento.Actor ?? "—")</td>
+                        <td>@evento.Accion</td>
+                        <td>@evento.Entidad</td>
+                        <td>@evento.Resultado</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool _cargando = true;
+    private string? _error;
+    private PaginaDto<EventoAuditoriaDto> _pagina = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _pagina = await Nucleo.ListarAuditoriaAsync(0);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No tienes permiso para ver la auditoría o la base no está disponible.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+}

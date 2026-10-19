@@ -1,0 +1,8 @@
+@inject EstadoSesion Estado
+
+<nav class="subnav-admin" aria-label="Administración">
+    @foreach (var item in CatalogoNavegacion.AdministracionVisible(Estado.Actual.Permisos))
+    {
+        <NavLink href="@item.Ruta">@item.Titulo</NavLink>
+    }
+</nav>

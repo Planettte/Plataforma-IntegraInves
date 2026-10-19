@@ -1,0 +1,313 @@
+@page "/estudios-clinicos/inventario-farmacia/nuevo"
+@page "/estudios-clinicos/inventario-farmacia/{Id:guid}"
+@inject ClienteFarmacia Cliente
+@inject IJSRuntime Js
+@inject Avisos Avisos
+@inject NavigationManager Navegacion
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_noEncontrado)
+{
+    <EncabezadoPagina Titulo="Formato" />
+    <Alerta Tipo="peligro" Mensaje="No se encontró el formato." />
+}
+else
+{
+    <div class="cabecera-herramienta">
+        <EncabezadoPagina Titulo="Contabilidad de medicamento en investigación" Descripcion="@(_cerrado ? "El formato está cerrado. Puedes ver los datos y generar el PDF." : "Al guardar, el formato queda cerrado. Después solo se puede ver y generar el PDF.")" />
+        <div class="agenda-dia-acciones">
+            @if (_cerrado)
+            {
+                <Boton Cargando="_descargando" TextoCargando="Generando…" AlActivar="DescargarAsync">Generar PDF</Boton>
+            }
+            else
+            {
+                <Boton Cargando="_guardando" AlActivar="PedirCierre">Guardar</Boton>
+            }
+        </div>
+    </div>
+
+    @if (_error is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+
+    <fieldset class="hoja-farmacia-campo" disabled="@_cerrado">
+    <section class="hoja hoja-farmacia">
+        <div class="fila-campos-3">
+            <div class="campo">
+                <label for="farm-numero">Número del estudio</label>
+                <input id="farm-numero" class="entrada" @bind="_formato.NumeroEstudio" />
+            </div>
+            <div class="campo">
+                <label for="farm-patrocinador">Patrocinador</label>
+                <input id="farm-patrocinador" class="entrada" @bind="_formato.Patrocinador" />
+            </div>
+            <div class="campo">
+                <label for="farm-coordinador">Coordinador</label>
+                <input id="farm-coordinador" class="entrada" @bind="_formato.Coordinador" />
+            </div>
+            <div class="campo">
+                <label for="farm-centro">N° centro</label>
+                <input id="farm-centro" class="entrada" @bind="_formato.NumeroCentro" />
+            </div>
+            <div class="campo">
+                <label for="farm-investigador">Investigador principal</label>
+                <input id="farm-investigador" class="entrada" @bind="_formato.InvestigadorPrincipal" />
+            </div>
+            <div class="campo">
+                <label for="farm-dosis">Dosis</label>
+                <input id="farm-dosis" class="entrada" @bind="_formato.Dosis" />
+            </div>
+        </div>
+        <div class="campo">
+            <label for="farm-titulo">Título del estudio</label>
+            <textarea id="farm-titulo" class="entrada area-texto" rows="2" @bind="_formato.Titulo"></textarea>
+        </div>
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="farm-condiciones">Condiciones de almacenamiento</label>
+                <input id="farm-condiciones" class="entrada" @bind="_formato.CondicionesAlmacenamiento" />
+            </div>
+            <div class="campo">
+                <label for="farm-descripcion">Descripción del medicamento</label>
+                <input id="farm-descripcion" class="entrada" @bind="_formato.DescripcionMedicamento" />
+            </div>
+        </div>
+    </section>
+
+    <section class="hoja">
+        <div class="tarjeta-usuarios-cabecera">
+            <div>
+                <h2>Medicamentos</h2>
+                <p>Cada fila lleva el sujeto como código/iniciales.</p>
+            </div>
+            @if (!_cerrado)
+            {
+                <Boton Variante="secundario" AlActivar="AgregarFila">Agregar fila</Boton>
+            }
+        </div>
+        <div class="tabla-contenedor tabla-farmacia-marco">
+            <table class="tabla-farmacia">
+                <thead>
+                    <tr>
+                        <th rowspan="2">N° envío</th>
+                        <th colspan="5">Recepción</th>
+                        <th colspan="4">Entrega</th>
+                        <th colspan="5">Retorno</th>
+                        <th rowspan="2">Control monitoría</th>
+                        <th colspan="3">Disposición final</th>
+                        @if (!_cerrado)
+                        {
+                            <th rowspan="2"></th>
+                        }
+                    </tr>
+                    <tr>
+                        <th>Fecha recibido<span class="pista-fecha">dd-mm-aa</span></th>
+                        <th>Lote/Ref</th>
+                        <th>Fecha vencimiento<span class="pista-fecha">dd-mm-aa</span></th>
+                        <th>Código<br>medicamento</th>
+                        <th>Conforme</th>
+                        <th>Sujeto código/<br>iniciales</th>
+                        <th>Fecha<span class="pista-fecha">dd-mm-aa</span></th>
+                        <th>Entrega</th>
+                        <th>Recibe</th>
+                        <th>Fecha<span class="pista-fecha">dd-mm-aa</span></th>
+                        <th>Empaque</th>
+                        <th>Und.<br>medicamento</th>
+                        <th>Entrega</th>
+                        <th>Recibe</th>
+                        <th>Fecha<span class="pista-fecha">dd-mm-aa</span></th>
+                        <th>Retorno patrocinador<br>N° acta</th>
+                        <th>Destrucción<br>N° acta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_formato.Filas.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="@(_cerrado ? 19 : 20)">No hay filas. Agrega un medicamento.</td>
+                        </tr>
+                    }
+                    @foreach (var fila in _formato.Filas)
+                    {
+                        var actual = fila;
+                        <tr>
+                            <td><input class="entrada" @bind="actual.NumeroEnvio" /></td>
+                            <td><input class="entrada" type="date" value="@actual.FechaRecibido" @onchange="e => actual.FechaRecibido = Fecha(e)" /></td>
+                            <td><input class="entrada" @bind="actual.Lote" /></td>
+                            <td><input class="entrada" type="date" value="@actual.FechaVencimiento" @onchange="e => actual.FechaVencimiento = Fecha(e)" /></td>
+                            <td><input class="entrada" @bind="actual.CodigoMedicamento" /></td>
+                            <td><input class="entrada" @bind="actual.Conforme" /></td>
+                            <td><input class="entrada" @bind="actual.SujetoCodigo" /></td>
+                            <td><input class="entrada" type="date" value="@actual.FechaEntrega" @onchange="e => actual.FechaEntrega = Fecha(e)" /></td>
+                            <td><input class="entrada" @bind="actual.Entrega" /></td>
+                            <td><input class="entrada" @bind="actual.Recibe" /></td>
+                            <td><input class="entrada" type="date" value="@actual.FechaRetorno" @onchange="e => actual.FechaRetorno = Fecha(e)" /></td>
+                            <td><input class="entrada" @bind="actual.Empaque" /></td>
+                            <td><input class="entrada" @bind="actual.Unidades" /></td>
+                            <td><input class="entrada" @bind="actual.EntregaRetorno" /></td>
+                            <td><input class="entrada" @bind="actual.RecibeRetorno" /></td>
+                            <td><input class="entrada" @bind="actual.ControlMonitoria" /></td>
+                            <td><input class="entrada" type="date" value="@actual.FechaDisposicion" @onchange="e => actual.FechaDisposicion = Fecha(e)" /></td>
+                            <td><input class="entrada" @bind="actual.RetornoPatrocinador" /></td>
+                            <td><input class="entrada" @bind="actual.DestruccionActa" /></td>
+                            @if (!_cerrado)
+                            {
+                                <td><Boton Variante="peligro" AlActivar="() => QuitarFila(actual)">Quitar</Boton></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="hoja cierre-farmacia">
+        <div class="campo">
+            <label for="farm-obs">Observaciones</label>
+            <textarea id="farm-obs" class="entrada area-texto" rows="3" @bind="_formato.Observaciones"></textarea>
+        </div>
+        <div class="campo">
+            <label for="farm-responsable">Responsable farmacia</label>
+            <input id="farm-responsable" class="entrada" @bind="_formato.ResponsableFarmacia" />
+        </div>
+        <div class="campo">
+            <label for="farm-firma">Firma y fecha de verificación o cierre</label>
+            <input id="farm-firma" class="entrada" @bind="_formato.FirmaCierre" />
+        </div>
+        <div class="campo">
+            <label for="farm-cantidad">Cantidad final</label>
+            <input id="farm-cantidad" class="entrada" @bind="_formato.CantidadFinal" />
+        </div>
+    </section>
+    </fieldset>
+}
+
+<Confirmacion Visible="_confirmar" Titulo="Cerrar formato" Mensaje="Al guardar, el formato queda cerrado. Podrás abrirlo para ver los datos y generar el PDF, pero no podrás editarlo." TextoConfirmar="Guardar y cerrar" VarianteConfirmar="primario" AlConfirmar="GuardarAsync" AlCancelar="CancelarCierre" />
+
+@code {
+    private FormatoFarmaciaDto _formato = new();
+    private bool _cargando = true;
+    private bool _noEncontrado;
+    private bool _guardando;
+    private bool _descargando;
+    private bool _confirmar;
+    private string? _error;
+    private bool _cerrado;
+
+    [Parameter] public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id == Guid.Empty)
+        {
+            if (_formato.Id != Guid.Empty)
+            {
+                _formato = new FormatoFarmaciaDto();
+                _cerrado = false;
+                _error = null;
+                _noEncontrado = false;
+            }
+
+            if (_formato.Filas.Count == 0)
+            {
+                _formato.Filas.Add(new FilaFarmaciaDto());
+            }
+
+            _cargando = false;
+            return;
+        }
+
+        if (_formato.Id == Id)
+        {
+            _cargando = false;
+            return;
+        }
+
+        _cargando = true;
+        _error = null;
+        _noEncontrado = false;
+        try
+        {
+            var formato = await Cliente.ObtenerFormatoAsync(Id);
+            if (formato is null)
+            {
+                _noEncontrado = true;
+                return;
+            }
+
+            _formato = formato;
+            _formato.Filas ??= [];
+            _cerrado = true;
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo abrir el formato.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void AgregarFila() => _formato.Filas.Add(new FilaFarmaciaDto());
+
+    private void QuitarFila(FilaFarmaciaDto fila) => _formato.Filas.Remove(fila);
+
+    private void PedirCierre() => _confirmar = true;
+
+    private void CancelarCierre() => _confirmar = false;
+
+    private async Task GuardarAsync()
+    {
+        _confirmar = false;
+        _guardando = true;
+        _error = null;
+        try
+        {
+            var guardado = await Cliente.GuardarFormatoAsync(_formato);
+            _formato = guardado;
+            _formato.Filas ??= [];
+            _cerrado = true;
+            Avisos.Completado();
+            NavegacionGuardada(guardado.Id);
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task DescargarAsync()
+    {
+        _descargando = true;
+        _error = null;
+        try
+        {
+            var (bytes, nombre) = await Cliente.PdfAsync(_formato.Id);
+            await Js.InvokeVoidAsync("centroArchivo.descargar", nombre, Convert.ToBase64String(bytes));
+            Avisos.Completado();
+        }
+        catch (Exception excepcion) when (excepcion is InvalidOperationException or HttpRequestException)
+        {
+            _error = excepcion.Message;
+        }
+        finally
+        {
+            _descargando = false;
+        }
+    }
+
+    private void NavegacionGuardada(Guid id) =>
+        Navegacion.NavigateTo($"/estudios-clinicos/inventario-farmacia/{id}", replace: true);
+
+    private static string Fecha(ChangeEventArgs evento) => evento.Value?.ToString() ?? "";
+}

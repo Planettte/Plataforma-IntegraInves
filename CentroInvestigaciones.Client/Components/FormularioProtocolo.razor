@@ -1,0 +1,463 @@
+@if (Modelo is null || string.IsNullOrEmpty(Modelo.Formato) && !Editable)
+{
+    <p class="estado-vacio">Este protocolo no tiene formato.</p>
+}
+else
+{
+    <section class="hoja">
+        <h3>Formulario usuario</h3>
+        <div class="rejilla-protocolo">
+            <div class="campo">
+                <label for="revisor-protocolo">Médico de Apoyo a la Investigación</label>
+                @if (Editable)
+                {
+                    <select id="revisor-protocolo" class="seleccion" value="@Modelo.RevisorId" @onchange="ElegirRevisor">
+                        <option value="@Guid.Empty">Seleccione</option>
+                        @foreach (var revisor in Revisores)
+                        {
+                            <option value="@revisor.Id">@revisor.Nombre</option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <input id="revisor-protocolo" class="entrada" readonly value="@NombreMedico" />
+                }
+            </div>
+            <div class="campo">
+                <label for="correo-protocolo">Correo Electronico</label>
+                <input id="correo-protocolo" class="entrada" type="email" readonly="@(!Editable)" value="@Modelo.Correo" @onchange="e => Modelo.Correo = Valor(e)" />
+            </div>
+            <div class="campo">
+                <label for="nombre-protocolo">Nombre Completo</label>
+                <input id="nombre-protocolo" class="entrada" readonly="@(!Editable)" value="@Modelo.Nombre" @onchange="e => Modelo.Nombre = Valor(e)" />
+            </div>
+            <div class="campo">
+                <label for="formato-protocolo">Formato</label>
+                <select id="formato-protocolo" class="seleccion" disabled="@(!Editable || FormatoFijo)" @bind="Modelo.Formato">
+                    <option value="">Seleccione</option>
+                    <option value="UIS">@CatalogoProtocolo.NombreFormato("UIS")</option>
+                    <option value="FOSCAL">@CatalogoProtocolo.NombreFormato("FOSCAL")</option>
+                    <option value="UDES">@CatalogoProtocolo.NombreFormato("UDES")</option>
+                </select>
+            </div>
+        </div>
+    </section>
+
+    @if (Modelo.Formato == "FOSCAL")
+    {
+        <div class="encabezado-foscal">
+            <h3>Protocolo Foscal</h3>
+            <Boton Variante="secundario" Cargando="_instrucciones" TextoCargando="Descargando…" AlActivar="InstruccionesAsync">Ver instrucciones</Boton>
+        </div>
+    }
+    else if (Modelo.Formato == "UDES")
+    {
+        <h3 class="titulo-protocolo">Protocolo UDES</h3>
+    }
+
+    @if (!string.IsNullOrEmpty(Modelo.Formato))
+    {
+        AsegurarListas();
+        @foreach (var grupo in Grupos)
+        {
+            <section class="hoja">
+                @if (Modelo.Formato == "FOSCAL" && grupo.Key == "Presupuesto")
+                {
+                    @Cronograma("Cronograma de actividades", Modelo.CronogramaFoscal, conResponsable: true)
+                }
+                @if (Modelo.Formato == "UDES" && grupo.Key == "Presupuesto")
+                {
+                    @Cronograma("Cronograma de actividades", Modelo.CronogramaUdes, conResponsable: false)
+                }
+                <h2>@grupo.Key</h2>
+                @foreach (var campo in grupo)
+                {
+                    <div class="campo">
+                        <label>@campo.Etiqueta</label>
+                        @if (!string.IsNullOrWhiteSpace(campo.Ayuda))
+                        {
+                            <p class="ayuda-campo">@campo.Ayuda</p>
+                        }
+                        <textarea class="entrada area-protocolo" readonly="@(!Editable)" value="@Texto(campo.Clave)" @onchange="e => Escribir(campo.Clave, e)"></textarea>
+                        @ComentarioCampo(campo.Clave)
+                    </div>
+                    @if (Modelo.Formato == "FOSCAL" && campo.Clave == "foscal_depuracion_analisis")
+                    {
+                        @TablaConocimiento()
+                        @TablaProductos("Relacionados con desarrollos tecnológicos e innovación", Modelo.Tecnologico, "foscal_tecnologico")
+                        @TablaProductos("Conducentes al fortalecimiento de la capacidad científica institucional", Modelo.Capacidad, "foscal_capacidad")
+                    }
+                    @if (Modelo.Formato == "UDES" && campo.Clave == "udes_consideraciones_eticas")
+                    {
+                        @Etica()
+                    }
+                    @if (Modelo.Formato == "UDES" && campo.Clave == "udes_presupuesto")
+                    {
+                        @GrillaPresupuesto()
+                    }
+                }
+            </section>
+        }
+    }
+}
+
+@inject ClienteProtocolos Cliente
+@inject IJSRuntime Js
+
+@code {
+    [Parameter, EditorRequired]
+    public ProtocoloDto Modelo { get; set; } = new();
+
+    [Parameter]
+    public IReadOnlyList<RevisorProtocoloDto> Revisores { get; set; } = [];
+
+    [Parameter]
+    public bool Editable { get; set; }
+
+    [Parameter]
+    public bool Revisar { get; set; }
+
+    [Parameter]
+    public bool FormatoFijo { get; set; }
+
+    private bool _instrucciones;
+
+    private async Task InstruccionesAsync()
+    {
+        _instrucciones = true;
+        try
+        {
+            var bytes = await Cliente.InstruccionesAsync();
+            await Js.InvokeVoidAsync("centroArchivo.descargar", "Cómo escribir un protocolo.pdf", Convert.ToBase64String(bytes));
+        }
+        finally
+        {
+            _instrucciones = false;
+        }
+    }
+
+    private string NombreMedico =>
+        Revisores.FirstOrDefault(item => item.Id == Modelo.RevisorId)?.Nombre
+        ?? Modelo.RevisorNombre;
+
+    private IEnumerable<IGrouping<string, CampoProtocolo>> Grupos =>
+        CatalogoProtocolo.Campos(Modelo.Formato).GroupBy(item => item.Seccion);
+
+    private void AsegurarListas()
+    {
+        Modelo.Respuestas ??= new Dictionary<string, string>(StringComparer.Ordinal);
+        Modelo.Comentarios ??= new Dictionary<string, string>(StringComparer.Ordinal);
+        Modelo.Conocimiento ??= [];
+        Modelo.Tecnologico ??= [];
+        Modelo.Capacidad ??= [];
+        Modelo.CronogramaFoscal ??= [];
+        Modelo.CronogramaUdes ??= [];
+        Modelo.Presupuesto ??= [];
+        Modelo.EticaPoblacion = Marcas(Modelo.EticaPoblacion, CatalogoProtocolo.EticaPoblacion.Length);
+        Modelo.EticaIntervencion = Marcas(Modelo.EticaIntervencion, CatalogoProtocolo.EticaIntervencion.Length);
+        Modelo.EticaInstrumentos = Marcas(Modelo.EticaInstrumentos, CatalogoProtocolo.EticaInstrumentos.Length);
+        while (Modelo.Presupuesto.Count < CatalogoProtocolo.Rubros.Length)
+        {
+            Modelo.Presupuesto.Add(new FilaPresupuestoProtocoloDto());
+        }
+
+        for (var indice = 0; indice < CatalogoProtocolo.Rubros.Length; indice++)
+        {
+            Modelo.Presupuesto[indice].Rubro = CatalogoProtocolo.Rubros[indice];
+            Modelo.Presupuesto[indice].Valores ??= [];
+            while (Modelo.Presupuesto[indice].Valores.Count < CatalogoProtocolo.Fuentes.Length)
+            {
+                Modelo.Presupuesto[indice].Valores.Add("");
+            }
+        }
+
+        foreach (var fila in Modelo.CronogramaFoscal.Concat(Modelo.CronogramaUdes))
+        {
+            fila.Meses = Marcas(fila.Meses, 12);
+        }
+    }
+
+    private string Texto(string clave) => Modelo.Respuestas.GetValueOrDefault(clave) ?? "";
+
+    private void Escribir(string clave, ChangeEventArgs evento)
+    {
+        var texto = Valor(evento);
+        if (texto.Length == 0)
+        {
+            Modelo.Respuestas.Remove(clave);
+            return;
+        }
+
+        Modelo.Respuestas[clave] = texto;
+    }
+
+    private string Comentario(string clave) => Modelo.Comentarios.GetValueOrDefault(clave) ?? "";
+
+    private void EscribirComentario(string clave, ChangeEventArgs evento) =>
+        Modelo.Comentarios[clave] = Valor(evento);
+
+    private void ElegirRevisor(ChangeEventArgs evento) =>
+        Modelo.RevisorId = Guid.TryParse(evento.Value?.ToString(), out var id) ? id : Guid.Empty;
+
+    private RenderFragment ComentarioCampo(string clave) => builder =>
+    {
+        if (Revisar)
+        {
+            builder.OpenElement(0, "textarea");
+            builder.AddAttribute(1, "class", "entrada comentario-protocolo");
+            builder.AddAttribute(2, "placeholder", "Comentario del médico...");
+            builder.AddAttribute(3, "value", Comentario(clave));
+            builder.AddAttribute(4, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, evento => EscribirComentario(clave, evento)));
+            builder.CloseElement();
+            return;
+        }
+
+        var texto = Comentario(clave);
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            return;
+        }
+
+        builder.OpenElement(0, "textarea");
+        builder.AddAttribute(1, "class", "entrada comentario-protocolo");
+        builder.AddAttribute(2, "readonly", true);
+        builder.AddAttribute(3, "value", texto);
+        builder.CloseElement();
+    };
+
+    private RenderFragment TablaConocimiento() => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "campo");
+        builder.OpenElement(2, "label");
+        builder.AddContent(3, "Relacionados con la generación de conocimiento");
+        builder.CloseElement();
+        builder.AddContent(4, TablaTres(Modelo.Conocimiento));
+        builder.AddContent(5, ComentarioCampo("foscal_conocimiento_general"));
+        if (Editable)
+        {
+            builder.AddContent(6, BotonAgregar(() => Modelo.Conocimiento.Add(new FilaConocimientoProtocoloDto())));
+        }
+
+        builder.CloseElement();
+    };
+
+    private RenderFragment TablaTres(List<FilaConocimientoProtocoloDto> filas) => @<div class="tabla-contenedor">
+        <table class="tabla-protocolo">
+            <thead>
+                <tr>
+                    <th>Resultado / producto esperado</th>
+                    <th>Indicador</th>
+                    <th>Beneficiario</th>
+                    @if (Editable)
+                    {
+                        <th></th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var fila in filas)
+                {
+                    <tr>
+                        <td><textarea class="entrada area-corta" readonly="@(!Editable)" value="@fila.Resultado" @onchange="e => fila.Resultado = Valor(e)"></textarea></td>
+                        <td><textarea class="entrada area-corta" readonly="@(!Editable)" value="@fila.Indicador" @onchange="e => fila.Indicador = Valor(e)"></textarea></td>
+                        <td><textarea class="entrada area-corta" readonly="@(!Editable)" value="@fila.Beneficiario" @onchange="e => fila.Beneficiario = Valor(e)"></textarea></td>
+                        @if (Editable)
+                        {
+                            <td><button type="button" class="boton boton-secundario" @onclick="() => filas.Remove(fila)">Quitar</button></td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>;
+
+    private RenderFragment TablaProductos(string titulo, List<FilaProductoProtocoloDto> filas, string claveComentario) => @<div class="campo">
+        <label>@titulo</label>
+        <div class="tabla-contenedor">
+            <table class="tabla-protocolo">
+                <thead>
+                    <tr>
+                        <th>Objetivo de la propuesta</th>
+                        <th>Resultado / producto esperado</th>
+                        <th>Indicador</th>
+                        <th>Beneficiario</th>
+                        @if (Editable)
+                        {
+                            <th></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var fila in filas)
+                    {
+                        <tr>
+                            <td><textarea class="entrada area-corta" readonly="@(!Editable)" value="@fila.Objetivo" @onchange="e => fila.Objetivo = Valor(e)"></textarea></td>
+                            <td><textarea class="entrada area-corta" readonly="@(!Editable)" value="@fila.Resultado" @onchange="e => fila.Resultado = Valor(e)"></textarea></td>
+                            <td><textarea class="entrada area-corta" readonly="@(!Editable)" value="@fila.Indicador" @onchange="e => fila.Indicador = Valor(e)"></textarea></td>
+                            <td><textarea class="entrada area-corta" readonly="@(!Editable)" value="@fila.Beneficiario" @onchange="e => fila.Beneficiario = Valor(e)"></textarea></td>
+                            @if (Editable)
+                            {
+                                <td><button type="button" class="boton boton-secundario" @onclick="() => filas.Remove(fila)">Quitar</button></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @ComentarioCampo(claveComentario)
+        @if (Editable)
+        {
+            <button type="button" class="boton boton-secundario" @onclick="() => filas.Add(new FilaProductoProtocoloDto())">Agregar fila</button>
+        }
+    </div>;
+
+    private RenderFragment Cronograma(string titulo, List<FilaCronogramaProtocoloDto> filas, bool conResponsable) => @<div class="campo">
+        <h2>@titulo</h2>
+        <div class="tabla-contenedor">
+            <table class="tabla-protocolo tabla-cronograma">
+                <thead>
+                    <tr>
+                        <th>Actividad</th>
+                        <th>Duración (meses)</th>
+                        @if (conResponsable)
+                        {
+                            <th>Responsable</th>
+                        }
+                        @if (Editable)
+                        {
+                            <th></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var fila in filas)
+                    {
+                        <tr>
+                            <td><textarea class="entrada area-corta" readonly="@(!Editable)" value="@fila.Actividad" @onchange="e => fila.Actividad = Valor(e)"></textarea></td>
+                            <td>
+                                <div class="meses-protocolo">
+                                    @for (var mes = 0; mes < 12; mes++)
+                                    {
+                                        var indice = mes;
+                                        <label>
+                                            <span>@(indice + 1)</span>
+                                            <input type="checkbox" disabled="@(!Editable)" checked="@fila.Meses[indice]" @onchange="e => fila.Meses[indice] = e.Value is bool marcado && marcado" />
+                                        </label>
+                                    }
+                                </div>
+                            </td>
+                            @if (conResponsable)
+                            {
+                                <td><textarea class="entrada area-corta" readonly="@(!Editable)" value="@fila.Responsable" @onchange="e => fila.Responsable = Valor(e)"></textarea></td>
+                            }
+                            @if (Editable)
+                            {
+                                <td><button type="button" class="boton boton-secundario" @onclick="() => filas.Remove(fila)">Quitar</button></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Editable)
+        {
+            <button type="button" class="boton boton-secundario" @onclick="() => filas.Add(NuevaFilaCronograma())">Agregar fila</button>
+        }
+    </div>;
+
+    private RenderFragment Etica() => @<div class="campo">
+        <h2>Seleccione si el proyecto involucra alguno de los siguientes</h2>
+        @GrupoEtica("Población", CatalogoProtocolo.EticaPoblacion, Modelo.EticaPoblacion)
+        @GrupoEtica("Intervención", CatalogoProtocolo.EticaIntervencion, Modelo.EticaIntervencion)
+        @GrupoEtica("Instrumentos de recolección", CatalogoProtocolo.EticaInstrumentos, Modelo.EticaInstrumentos)
+    </div>;
+
+    private RenderFragment GrupoEtica(string titulo, IReadOnlyList<string> opciones, List<bool> marcas) => @<div class="grupo-etica">
+        <h3>@titulo</h3>
+        @for (var indice = 0; indice < opciones.Count; indice++)
+        {
+            var posicion = indice;
+            <label class="marca-etica">
+                <input type="checkbox" disabled="@(!Editable)" checked="@marcas[posicion]" @onchange="e => marcas[posicion] = e.Value is bool marcado && marcado" />
+                <span>@opciones[posicion]</span>
+            </label>
+        }
+    </div>;
+
+    private RenderFragment GrillaPresupuesto() => @<div class="campo">
+        <div class="tabla-contenedor">
+            <table class="tabla-protocolo tabla-presupuesto">
+                <thead>
+                    <tr>
+                        <th rowspan="4">Rubros</th>
+                        <th colspan="8">Fuentes financiación</th>
+                        <th rowspan="4">Total</th>
+                    </tr>
+                    <tr>
+                        <th colspan="4">Internas</th>
+                        <th colspan="4">Externas</th>
+                    </tr>
+                    <tr>
+                        <th colspan="2">Convocatoria interna</th>
+                        <th colspan="2">Programa o facultad</th>
+                        <th colspan="2">Institución 1</th>
+                        <th colspan="2">Institución 2</th>
+                    </tr>
+                    <tr>
+                        @for (var par = 0; par < 4; par++)
+                        {
+                            <th>Efectivo</th>
+                            <th>Especie</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var fila in Modelo.Presupuesto.Take(CatalogoProtocolo.Rubros.Length))
+                    {
+                        <tr>
+                            <td>@fila.Rubro</td>
+                            @for (var columna = 0; columna < CatalogoProtocolo.Fuentes.Length; columna++)
+                            {
+                                var posicion = columna;
+                                <td><input class="entrada entrada-corta" inputmode="decimal" readonly="@(!Editable)" value="@fila.Valores[posicion]" @onchange="e => fila.Valores[posicion] = Valor(e)" /></td>
+                            }
+                            <td>@PresupuestoProtocolo.TotalFila(fila).ToString("N0", Cultura)</td>
+                        </tr>
+                    }
+                    <tr>
+                        <td>Total</td>
+                        @foreach (var total in PresupuestoProtocolo.TotalesColumna(Modelo.Presupuesto))
+                        {
+                            <td>@total.ToString("N0", Cultura)</td>
+                        }
+                        <td>@PresupuestoProtocolo.TotalGeneral(Modelo.Presupuesto).ToString("N0", Cultura)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>;
+
+    private RenderFragment BotonAgregar(Action accion) => @<button type="button" class="boton boton-secundario" @onclick="accion">Agregar fila</button>;
+
+    private static FilaCronogramaProtocoloDto NuevaFilaCronograma() => new()
+    {
+        Meses = Enumerable.Repeat(false, 12).ToList()
+    };
+
+    private static List<bool> Marcas(List<bool>? origen, int cantidad)
+    {
+        var marcas = new List<bool>(cantidad);
+        for (var indice = 0; indice < cantidad; indice++)
+        {
+            marcas.Add(origen is not null && indice < origen.Count && origen[indice]);
+        }
+
+        return marcas;
+    }
+
+    private static string Valor(ChangeEventArgs evento) => evento.Value?.ToString() ?? "";
+
+    private static readonly System.Globalization.CultureInfo Cultura = System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+}

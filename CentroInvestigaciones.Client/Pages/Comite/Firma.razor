@@ -1,0 +1,76 @@
+<div class="firma-mini">
+    <span class="firma-mini-titulo">@Etiqueta</span>
+    <label class="firma-mini-caja">
+        <span aria-hidden="true">✍️</span>
+        <span>@(string.IsNullOrWhiteSpace(Nombre) ? "Subir imagen de firma..." : Nombre)</span>
+        <InputFile OnChange="Elegir" accept="image/png,image/jpeg,image/webp" />
+    </label>
+    @if (!string.IsNullOrWhiteSpace(_aviso))
+    {
+        <p class="campo-mensaje">@_aviso</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Etiqueta { get; set; } = "Firma";
+    [Parameter] public EventCallback<string?> AlCambiar { get; set; }
+
+    private string? Nombre { get; set; }
+    private string? _aviso;
+
+    private async Task Elegir(InputFileChangeEventArgs evento)
+    {
+        var archivo = evento.File;
+        if (archivo.Size > 2 * 1024 * 1024)
+        {
+            _aviso = "La imagen de la firma supera 2 MB.";
+            Nombre = null;
+            await AlCambiar.InvokeAsync(null);
+            return;
+        }
+
+        await using var lectura = archivo.OpenReadStream(2 * 1024 * 1024);
+        using var memoria = new MemoryStream();
+        await lectura.CopyToAsync(memoria);
+        var bytes = memoria.ToArray();
+        var tipo = Tipo(archivo.ContentType, bytes);
+        if (tipo.Length == 0)
+        {
+            _aviso = "Usa una imagen PNG, JPG o WebP.";
+            Nombre = null;
+            await AlCambiar.InvokeAsync(null);
+            return;
+        }
+
+        _aviso = null;
+        Nombre = archivo.Name;
+        await AlCambiar.InvokeAsync($"data:{tipo};base64,{Convert.ToBase64String(bytes)}");
+    }
+
+    private static string Tipo(string? contenido, byte[] bytes)
+    {
+        if (contenido is "image/png" or "image/jpeg" or "image/webp")
+        {
+            return contenido;
+        }
+
+        if (bytes.Length >= 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
+        {
+            return "image/png";
+        }
+
+        if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
+        {
+            return "image/jpeg";
+        }
+
+        if (bytes.Length >= 12
+            && bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46
+            && bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50)
+        {
+            return "image/webp";
+        }
+
+        return "";
+    }
+}

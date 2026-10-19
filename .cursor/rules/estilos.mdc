@@ -1,0 +1,40 @@
+---
+description: Tokens, temas y clases de plataforma.css
+globs: CentroInvestigaciones.Client/**/*.css
+alwaysApply: false
+---
+
+# Estilos
+
+Hay un solo archivo de diseño: `CentroInvestigaciones.Client/wwwroot/css/plataforma.css`.
+La referencia visual es Inicio, Usuarios y Hojas de vida.
+
+El tema Claro usa estos colores, ya definidos como variables:
+
+- Azul principal `#1E4A8A` (`--azul-oscuro`, `--acento`)
+- Azul secundario `#2E6EB5` (`--azul`)
+- Azul claro `#E6F0FF` (`--azul-claro`, `--icono-fondo`)
+- Fondo `#F4F8FF` (`--fondo`)
+- Gris `#64748B` (`--texto-suave`) y gris claro `#F1F5FB` (`--fila`)
+- Éxito `#22C55E`, error `#EF4444`, alerta `#F59E0B`
+
+El encabezado es `linear-gradient(to right, #1e4a8a, #2b589b)` con texto blanco. El fondo de todas las pantallas lleva `FondoFormas`: formas suaves y la onda en `#D5E4F7`, un azul apenas más oscuro que el fondo.
+
+Tarjetas blancas, radio amplio y sombra suave. El título de una tarjeta usa `icono-solido`. Las listas usan la pastilla `enlace-icono`. Una tabla sigue a Usuarios: cabecera azul clara, identidad en la fila, acciones en contorno y el número de página centrado.
+
+Antes de crear una clase, revisa `boton`, `entrada`, `seleccion`, `tabla`, `modal`, `alerta` y `tarjeta`. Una clase nueva cubre un componente que esas no resuelven y usa las variables del tema, no un color suelto.
+
+Hay dos cortes de ancho, ambos en este archivo. Hasta 1100px la tarjeta principal usa el ancho disponible y las columnas de inicio, agenda, formularios y filtros pasan a una sola; la barra de herramientas se desplaza en horizontal. Hasta 720px el encabezado deja el subtítulo y las acciones de una tarjeta se apilan. No agregues otro `@media` en una página.
+
+El arranque centra «Cargando la plataforma…» con un giro. Un `Boton` con `Cargando` cambia el texto a `TextoCargando`, que por defecto es Guardando…. Una alerta dentro de un modal se queda fija arriba del formulario.
+
+Un modal queda por encima del encabezado. La altura máxima es `min(74vh, calc(100vh - 6.5rem))` en los anchos y `min(70vh, calc(100vh - 6.5rem))` en el resto. El título y `.modal-acciones` se quedan fijos; el cuerpo hace scroll. El histórico usa `historico-filtros`, `historico-cuenta` y `historico-item`, también en la agenda general. El formulario de registro es `modal-registro`: campos a la izquierda y `registro-dia` a la derecha. El aviso de éxito es `.aviso-completado`, abajo a la derecha, y se oculta solo.
+
+```css
+.ayuda-inventario {
+    color: var(--texto-suave);
+    margin: 0 0 0.75rem;
+}
+```
+
+El encabezado de la tabla de inventario usa `--sidebar-fondo` y el texto `--barra-texto`, el mismo azul oscuro de la barra. Así las letras se leen en todos los temas.

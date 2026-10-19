@@ -1,0 +1,383 @@
+@page "/estudios-clinicos/plantillas"
+@inject ClientePlantillas Cliente
+@inject EstadoSesion Estado
+@inject NavigationManager Navegacion
+
+<EncabezadoPagina Titulo="Plantillas de estudios" Descripcion="Cada estudio guarda sus datos y las plantillas marcadas. El texto de una carta solo vive mientras la tienes abierta." />
+
+@if (_error is not null)
+{
+    <Alerta Tipo="peligro" Mensaje="@_error" />
+}
+
+<div class="acciones-fila">
+    <Boton AlActivar="AbrirEstudio">Nuevo estudio</Boton>
+    @if (PuedeAdministrar)
+    {
+        <Boton Variante="secundario" AlActivar="AbrirInvestigador">Nuevo investigador</Boton>
+        <Boton Variante="secundario" AlActivar="AbrirCoordinador">Nuevo coordinador</Boton>
+    }
+</div>
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_estudios.Count == 0)
+{
+    <EstadoVacio Mensaje="Todavía no hay estudios. Crea uno para empezar a marcar plantillas." />
+}
+else
+{
+    <ul class="lista-personas">
+        @foreach (var estudio in _estudios)
+        {
+            <li>
+                <a class="persona-fila" href="@($"/estudios-clinicos/plantillas/{estudio.Id}")">
+                    <span>
+                        <strong>@estudio.Nombre</strong>
+                        <small>@Resumen(estudio)</small>
+                    </span>
+                </a>
+            </li>
+        }
+    </ul>
+}
+
+@if (PuedeAdministrar)
+{
+    <section class="hoja" style="padding: 0.9rem 1rem; margin-top: 1.25rem;">
+        <h3 style="margin: 0 0 0.6rem; font-size: 1rem;">Listas</h3>
+        <div class="fila-campos">
+            <div>
+                <p style="margin: 0 0 0.35rem;"><strong>Investigadores</strong></p>
+                @if (_investigadores.Count == 0)
+                {
+                    <p class="texto-suave">Sin investigadores.</p>
+                }
+                else
+                {
+                    <ul class="lista-compacta">
+                        @foreach (var persona in _investigadores)
+                        {
+                            <li>
+                                <span>@persona.Nombre <small>@persona.Titulo</small></span>
+                                <span>
+                                    <button type="button" class="enlace-boton" @onclick="() => EditarInvestigador(persona)">Editar</button>
+                                    <button type="button" class="enlace-boton" @onclick="() => QuitarInvestigador(persona)">Quitar</button>
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+            <div>
+                <p style="margin: 0 0 0.35rem;"><strong>Coordinadores</strong></p>
+                @if (_coordinadores.Count == 0)
+                {
+                    <p class="texto-suave">Sin coordinadores. Agrega nombre y correo para poder enviar cartas.</p>
+                }
+                else
+                {
+                    <ul class="lista-compacta">
+                        @foreach (var persona in _coordinadores)
+                        {
+                            <li>
+                                <span>@persona.Nombre <small>@(string.IsNullOrWhiteSpace(persona.Correo) ? "Sin correo" : persona.Correo)</small></span>
+                                <span>
+                                    <button type="button" class="enlace-boton" @onclick="() => EditarCoordinador(persona)">Editar</button>
+                                    @if (!EsBackup(persona))
+                                    {
+                                        <button type="button" class="enlace-boton" @onclick="() => QuitarCoordinador(persona)">Quitar</button>
+                                    }
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+<Modal Visible="_modalEstudio" Titulo="Nuevo estudio" AlCerrar="CerrarEstudio">
+    <ChildContent>
+        <CampoFormulario Id="estudio-nombre" Etiqueta="Nombre del estudio" @bind-Valor="_nombre" />
+        <div class="fila-campos">
+            <CampoFormulario Id="estudio-codigo" Etiqueta="Código o protocolo" @bind-Valor="_codigo" />
+            <CampoFormulario Id="estudio-patrocinador" Etiqueta="Patrocinador" @bind-Valor="_patrocinador" />
+        </div>
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="estudio-principal">Investigador principal</label>
+                <select id="estudio-principal" class="seleccion" value="@Texto(_principal)" @onchange="ElegirPrincipal">
+                    <option value="">Sin asignar</option>
+                    @foreach (var persona in _investigadores)
+                    {
+                        <option value="@persona.Id">@EtiquetaInvestigador(persona)</option>
+                    }
+                </select>
+            </div>
+            <div class="campo">
+                <label for="estudio-sub">Subinvestigador</label>
+                <select id="estudio-sub" class="seleccion" value="@Texto(_sub)" @onchange="ElegirSub">
+                    <option value="">Sin asignar</option>
+                    @foreach (var persona in _investigadores)
+                    {
+                        <option value="@persona.Id">@EtiquetaInvestigador(persona)</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="estudio-coordinador">Coordinador principal</label>
+                <select id="estudio-coordinador" class="seleccion" value="@Texto(_coordinador)" @onchange="ElegirCoordinador">
+                    <option value="">Sin asignar</option>
+                    @foreach (var persona in Principales)
+                    {
+                        <option value="@persona.Id">@persona.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="campo">
+                <label>Coordinador backup</label>
+                <p class="texto-suave">Wendy Katherine Mantilla Duarte</p>
+            </div>
+        </div>
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="CerrarEstudio">Cancelar</Boton>
+        <Boton Deshabilitado="@string.IsNullOrWhiteSpace(_nombre)" AlActivar="CrearEstudioAsync">Crear</Boton>
+    </Pie>
+</Modal>
+
+<Modal Visible="_modalInvestigador" Titulo="@(_editandoPersona ? "Editar investigador" : "Nuevo investigador")" AlCerrar="CerrarInvestigador">
+    <ChildContent>
+        <CampoFormulario Id="investigador-nombre" Etiqueta="Nombre" @bind-Valor="_nombrePersona" />
+        <CampoFormulario Id="investigador-titulo" Etiqueta="Título (M.D.)" @bind-Valor="_tituloPersona" />
+        <p class="texto-suave">La carpeta de la firma queda como «Nombre - Título». Si no hay imagen dentro, la carta sale sin firma.</p>
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="CerrarInvestigador">Cancelar</Boton>
+        <Boton Deshabilitado="@(string.IsNullOrWhiteSpace(_nombrePersona) || string.IsNullOrWhiteSpace(_tituloPersona))" AlActivar="GuardarInvestigadorAsync">@(_editandoPersona ? "Guardar" : "Agregar")</Boton>
+    </Pie>
+</Modal>
+
+<Modal Visible="_modalCoordinador" Titulo="@(_editandoPersona ? "Editar coordinador" : "Nuevo coordinador")" AlCerrar="CerrarCoordinador">
+    <ChildContent>
+        <CampoFormulario Id="coordinador-nombre" Etiqueta="Nombre" @bind-Valor="_nombrePersona" />
+        <CampoFormulario Id="coordinador-correo" Etiqueta="Correo" @bind-Valor="_correoPersona" />
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="CerrarCoordinador">Cancelar</Boton>
+        <Boton Deshabilitado="@(string.IsNullOrWhiteSpace(_nombrePersona) || string.IsNullOrWhiteSpace(_correoPersona))" AlActivar="GuardarCoordinadorAsync">@(_editandoPersona ? "Guardar" : "Agregar")</Boton>
+    </Pie>
+</Modal>
+
+@code {
+    private IReadOnlyList<EstudioPlantillaDto> _estudios = [];
+    private IReadOnlyList<InvestigadorPlantillaDto> _investigadores = [];
+    private IReadOnlyList<CoordinadorPlantillaDto> _coordinadores = [];
+    private bool _cargando = true;
+    private bool _modalEstudio;
+    private bool _modalInvestigador;
+    private bool _modalCoordinador;
+    private string _nombre = "";
+    private string _codigo = "";
+    private string _patrocinador = "";
+    private string _nombrePersona = "";
+    private string _tituloPersona = "";
+    private string _correoPersona = "";
+    private Guid? _principal;
+    private Guid? _sub;
+    private Guid? _coordinador;
+    private Guid? _personaId;
+    private bool _editandoPersona;
+    private string? _error;
+
+    private bool PuedeAdministrar => Estado.Actual.Permisos.Contains("nucleo.usuarios.aprobar");
+
+    private IEnumerable<CoordinadorPlantillaDto> Principales =>
+        _coordinadores.Where(persona => !EsBackup(persona));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _estudios = await Cliente.EstudiosAsync();
+            _investigadores = await Cliente.InvestigadoresAsync();
+            _coordinadores = await Cliente.CoordinadoresAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cargar las plantillas.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private void AbrirEstudio()
+    {
+        _nombre = "";
+        _codigo = "";
+        _patrocinador = "";
+        _principal = _investigadores.FirstOrDefault()?.Id;
+        _sub = _investigadores.Skip(1).FirstOrDefault()?.Id;
+        _coordinador = Principales.FirstOrDefault()?.Id;
+        _error = null;
+        _modalEstudio = true;
+    }
+
+    private void CerrarEstudio() => _modalEstudio = false;
+
+    private void CerrarInvestigador() => _modalInvestigador = false;
+
+    private void CerrarCoordinador() => _modalCoordinador = false;
+
+    private void ElegirPrincipal(ChangeEventArgs cambio) => _principal = Id(cambio);
+
+    private void ElegirSub(ChangeEventArgs cambio) => _sub = Id(cambio);
+
+    private void ElegirCoordinador(ChangeEventArgs cambio) => _coordinador = Id(cambio);
+
+    private void AbrirInvestigador()
+    {
+        _personaId = null;
+        _editandoPersona = false;
+        _nombrePersona = "";
+        _tituloPersona = "";
+        _error = null;
+        _modalInvestigador = true;
+    }
+
+    private void EditarInvestigador(InvestigadorPlantillaDto persona)
+    {
+        _personaId = persona.Id;
+        _editandoPersona = true;
+        _nombrePersona = persona.Nombre;
+        _tituloPersona = persona.Titulo;
+        _modalInvestigador = true;
+    }
+
+    private void AbrirCoordinador()
+    {
+        _personaId = null;
+        _editandoPersona = false;
+        _nombrePersona = "";
+        _correoPersona = "";
+        _error = null;
+        _modalCoordinador = true;
+    }
+
+    private void EditarCoordinador(CoordinadorPlantillaDto persona)
+    {
+        _personaId = persona.Id;
+        _editandoPersona = true;
+        _nombrePersona = persona.Nombre;
+        _correoPersona = persona.Correo;
+        _modalCoordinador = true;
+    }
+
+    private async Task GuardarInvestigadorAsync()
+    {
+        var (persona, error) = _editandoPersona && _personaId is Guid id
+            ? await Cliente.GuardarInvestigadorAsync(id, _nombrePersona, _tituloPersona)
+            : await Cliente.CrearInvestigadorAsync(_nombrePersona, _tituloPersona);
+        if (error is not null || persona is null)
+        {
+            _error = error ?? "No se pudo guardar el investigador.";
+            _modalInvestigador = false;
+            return;
+        }
+
+        _investigadores = _editandoPersona
+            ? _investigadores.Select(item => item.Id == persona.Id ? persona : item).OrderBy(item => item.Nombre).ToList()
+            : _investigadores.Append(persona).OrderBy(item => item.Nombre).ToList();
+        _modalInvestigador = false;
+    }
+
+    private async Task GuardarCoordinadorAsync()
+    {
+        var (persona, error) = _editandoPersona && _personaId is Guid id
+            ? await Cliente.GuardarCoordinadorAsync(id, _nombrePersona, _correoPersona)
+            : await Cliente.CrearCoordinadorAsync(_nombrePersona, _correoPersona);
+        if (error is not null || persona is null)
+        {
+            _error = error ?? "No se pudo guardar el coordinador.";
+            _modalCoordinador = false;
+            return;
+        }
+
+        _coordinadores = _editandoPersona
+            ? _coordinadores.Select(item => item.Id == persona.Id ? persona : item).OrderBy(item => item.Nombre).ToList()
+            : _coordinadores.Append(persona).OrderBy(item => item.Nombre).ToList();
+        _modalCoordinador = false;
+    }
+
+    private async Task CrearEstudioAsync()
+    {
+        var (estudio, error) = await Cliente.CrearEstudioAsync(new GuardarEstudioPlantillaDto
+        {
+            Nombre = _nombre,
+            Codigo = _codigo,
+            Patrocinador = _patrocinador,
+            InvestigadorPrincipalId = _principal,
+            SubinvestigadorId = _sub,
+            CoordinadorPrincipalId = _coordinador
+        });
+        if (error is not null || estudio is null)
+        {
+            _error = error ?? "No se pudo crear el estudio.";
+            _modalEstudio = false;
+            return;
+        }
+
+        Navegacion.NavigateTo($"/estudios-clinicos/plantillas/{estudio.Id}");
+    }
+
+    private async Task QuitarInvestigador(InvestigadorPlantillaDto persona)
+    {
+        var error = await Cliente.EliminarInvestigadorAsync(persona.Id);
+        if (error is not null)
+        {
+            _error = error;
+            return;
+        }
+
+        _investigadores = _investigadores.Where(item => item.Id != persona.Id).ToList();
+    }
+
+    private async Task QuitarCoordinador(CoordinadorPlantillaDto persona)
+    {
+        var error = await Cliente.EliminarCoordinadorAsync(persona.Id);
+        if (error is not null)
+        {
+            _error = error;
+            return;
+        }
+
+        _coordinadores = _coordinadores.Where(item => item.Id != persona.Id).ToList();
+    }
+
+    private static string EtiquetaInvestigador(InvestigadorPlantillaDto persona) =>
+        string.IsNullOrWhiteSpace(persona.Titulo) ? persona.Nombre : $"{persona.Nombre} — {persona.Titulo}";
+
+    private static bool EsBackup(CoordinadorPlantillaDto persona) =>
+        persona.Nombre.Equals("Wendy Katherine Mantilla Duarte", StringComparison.OrdinalIgnoreCase);
+
+    private static string Resumen(EstudioPlantillaDto estudio)
+    {
+        var partes = new[] { estudio.Codigo, estudio.Patrocinador, estudio.InvestigadorPrincipal }
+            .Where(item => !string.IsNullOrWhiteSpace(item));
+        var texto = string.Join(" · ", partes);
+        return string.IsNullOrWhiteSpace(texto) ? "Sin código ni investigador" : texto;
+    }
+
+    private static string Texto(Guid? id) => id?.ToString() ?? "";
+
+    private static Guid? Id(ChangeEventArgs cambio) =>
+        Guid.TryParse(cambio.Value?.ToString(), out var id) ? id : null;
+}

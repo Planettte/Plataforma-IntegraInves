@@ -1,0 +1,32 @@
+---
+description: Capas, tecnologías y destino de datos de la plataforma FOSCAL
+alwaysApply: true
+---
+
+# Arquitectura
+
+.NET 10. Una sola institución. No traduzcas Google Apps Script a C#.
+
+| Proyecto | Responsabilidad |
+| --- | --- |
+| `Client` | Blazor WASM. Solo llama a la API. No autoriza. |
+| `API` | HTTP, cookie, Google y adaptadores (SQL o archivo). |
+| `Application` | Casos de uso e interfaces de almacén y depósito. |
+| `Domain` | Entidades y permisos. Sin ASP.NET ni EF. |
+| `Data` | EF Core. Esquema por área: `nucleo`, `estudios`, `udd`, `comite`. |
+| `Shared` | DTOs que comparten API y cliente. |
+
+El cliente se sirve desde la API. En desarrollo: `https://localhost:7029` con `dotnet run --launch-profile https`.
+
+## Persistencia
+
+El destino de los datos es SQL Server (`ConnectionStrings:Centro`). `datos-locales/*.json` es el respaldo mientras SQL no responde. `nucleo.json` solo guarda el núcleo. Cada herramienta usa su propio archivo temporal y no se mezcla con ese.
+
+El destino de los archivos es un bucket de Google. El cliente y `Domain` no conocen la ruta. La interfaz vive en `Application` (`IDepositoArchivos`, `IDepositoEstudios`); la carpeta local es el adaptador de hoy.
+
+```csharp
+// Application: el caso de uso depende de la interfaz
+string Guardar(Guid duenoId, string nombreArchivo, Stream contenido);
+```
+
+No inventes campos, estados ni permisos. Si un dato no está definido, déjalo pendiente. Identificadores y textos de interfaz van en español. `Nullable` está habilitado.

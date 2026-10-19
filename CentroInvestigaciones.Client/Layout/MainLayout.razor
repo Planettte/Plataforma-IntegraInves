@@ -1,0 +1,340 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject ClienteSesion Cliente
+@inject EstadoSesion Estado
+@inject TemaInterfaz Tema
+@inject NavigationManager Navegacion
+
+@if (!_listo)
+{
+    <div class="portal portal-centrado">
+        <Cargando Texto="Comprobando sesión" />
+    </div>
+}
+else if (!Estado.Actual.Autenticado)
+{
+    <div class="portal portal-centrado">
+        <Cargando Texto="Redirigiendo al ingreso" />
+    </div>
+}
+else if (Estado.Actual.RequiereCompletarIngreso)
+{
+    <div class="portal portal-centrado">
+        <Cargando Texto="Redirigiendo al perfil inicial" />
+    </div>
+}
+else
+{
+    <div class="app-shell-vertical">
+        <FondoFormas />
+        <header class="barra-superior">
+            <div class="barra-superior-izquierda">
+                <a class="marca-header marca-con-logo" href="/">
+                    <img src="img/logo-foscal-marca.png" alt="FOSCAL" />
+                    <span class="marca-textos">
+                        <strong>FOSCAL</strong>
+                        <span>Plataforma Integral Centro de Investigaciones</span>
+                    </span>
+                </a>
+            </div>
+            <div class="acciones-sesion">
+                <CampanaNotificaciones />
+                <div class="menu-cuenta">
+                    <button type="button" class="boton boton-secundario boton-barra" @onclick="AlternarMenu" aria-expanded="@_menuCuenta" aria-haspopup="true">
+                        <span class="menu-cuenta-nombre">@PrimerNombre(Estado.Actual.Nombres, Estado.Actual.Nombre)</span>
+                        <svg class="flecha-menu" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+                    @if (_menuCuenta)
+                    {
+                        <button type="button" class="menu-cuenta-velo" @onclick="CerrarMenu" aria-label="Cerrar menú"></button>
+                        <div class="menu-cuenta-panel">
+                            <button type="button" @onclick="IrPerfil">Perfil</button>
+                            <button type="button" @onclick="AbrirTema">Tema</button>
+                            <button type="button" @onclick="CerrarSesion">Cerrar sesión</button>
+                        </div>
+                    }
+                </div>
+                <SelectorTema @ref="_temas" MostrarBoton="false" />
+            </div>
+        </header>
+        <AvisoCompletado />
+
+        @if (EsDashboard)
+        {
+            <main id="contenido" class="cuerpo-app cuerpo-dashboard">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsHojasDeVida)
+        {
+            <BarraHojaVida />
+            <main id="contenido" class="cuerpo-app">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsEstudios)
+        {
+            <BarraEstudios />
+            <main id="contenido" class="cuerpo-app @(EsListadoEstudios ? "cuerpo-estudios" : null)">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsPlantillas)
+        {
+            <BarraPlantillas />
+            <main id="contenido" class="cuerpo-app">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsDispositivos)
+        {
+            <BarraDispositivos />
+            <main id="contenido" class="cuerpo-app">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsFarmacia)
+        {
+            <BarraFarmacia />
+            <main id="contenido" class="cuerpo-app">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsRetencion)
+        {
+            <BarraRetencion />
+            <main id="contenido" class="cuerpo-app">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsProyectos)
+        {
+            <BarraProyectos />
+            <main id="contenido" class="cuerpo-app cuerpo-ancho">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsProtocolos)
+        {
+            <BarraProtocolos />
+            <main id="contenido" class="cuerpo-app cuerpo-ancho">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsAgenda)
+        {
+            <BarraAgenda />
+            <main id="contenido" class="cuerpo-app cuerpo-agenda">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsAdministracion)
+        {
+            <BarraCuenta />
+            <main id="contenido" class="cuerpo-app cuerpo-libre">
+                @ContenidoPagina()
+            </main>
+        }
+        else if (EsSinSidebar)
+        {
+            <BarraCuenta />
+            <main id="contenido" class="cuerpo-app cuerpo-ancho">
+                @ContenidoPagina()
+            </main>
+        }
+        else
+        {
+            <main id="contenido" class="cuerpo-app">
+                @ContenidoPagina()
+            </main>
+        }
+    </div>
+}
+
+@code {
+    private string? _errorCierre;
+    private ErrorBoundary? _limite;
+    private SelectorTema? _temas;
+    private bool _listo;
+    private bool _menuCuenta;
+
+    private bool EsDashboard => string.IsNullOrEmpty(RutaActual);
+
+    private bool EsHojasDeVida =>
+        RutaActual == "estudios-clinicos/hojas-de-vida"
+        || RutaActual.StartsWith("estudios-clinicos/hojas-de-vida/", StringComparison.OrdinalIgnoreCase);
+
+    private bool EsPlantillas =>
+        RutaActual == "estudios-clinicos/plantillas"
+        || RutaActual.StartsWith("estudios-clinicos/plantillas/", StringComparison.OrdinalIgnoreCase);
+
+    private bool EsDispositivos =>
+        RutaActual == "estudios-clinicos/inventario-dispositivos"
+        || RutaActual.StartsWith("estudios-clinicos/inventario-dispositivos/", StringComparison.OrdinalIgnoreCase);
+
+    private bool EsFarmacia =>
+        RutaActual == "estudios-clinicos/inventario-farmacia"
+        || RutaActual.StartsWith("estudios-clinicos/inventario-farmacia/", StringComparison.OrdinalIgnoreCase);
+
+    private bool EsRetencion =>
+        RutaActual == "estudios-clinicos/retencion-documental"
+        || RutaActual.StartsWith("estudios-clinicos/retencion-documental/", StringComparison.OrdinalIgnoreCase);
+
+    private bool EsProyectos =>
+        RutaActual == "udd/proyectos"
+        || RutaActual.StartsWith("udd/proyectos/", StringComparison.OrdinalIgnoreCase);
+
+    private bool EsProtocolos =>
+        (RutaActual == "udd/protocolos"
+            || RutaActual.StartsWith("udd/protocolos/", StringComparison.OrdinalIgnoreCase))
+        && !RutaActual.StartsWith("udd/protocolos/externo", StringComparison.OrdinalIgnoreCase);
+
+    private bool EsAgenda =>
+        RutaActual == "estudios-clinicos/agenda"
+        || RutaActual == "udd/agenda";
+
+    private bool EsListadoEstudios => RutaActual == "comite/estudios";
+
+    private bool EsEstudios =>
+        RutaActual == "comite/estudios"
+        || (RutaActual.StartsWith("comite/estudios/", StringComparison.OrdinalIgnoreCase)
+            && !RutaActual.StartsWith("comite/estudios/externo", StringComparison.OrdinalIgnoreCase));
+
+    private bool EsAdministracion =>
+        RutaActual.StartsWith("administracion", StringComparison.OrdinalIgnoreCase);
+
+    private bool EsSinSidebar =>
+        RutaActual is "perfil" or "estado-cuenta";
+
+    private string RutaActual
+    {
+        get
+        {
+            var ruta = Navegacion.ToBaseRelativePath(Navegacion.Uri).Split('?', '#')[0].Trim('/');
+            return ruta;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navegacion.LocationChanged += AlCambiarRuta;
+        Estado.Cambio += Refrescar;
+        await Estado.CargarAsync(Cliente);
+        await AplicarSesionAsync();
+    }
+
+    private RenderFragment ContenidoPagina() => @<text>
+        @if (!string.IsNullOrEmpty(_errorCierre))
+        {
+            <Alerta Tipo="peligro" Mensaje="@_errorCierre" />
+        }
+        @if (Estado.Actual.EstadoCuenta is "PendienteAprobacion" or "Rechazado" or "Inactivo")
+        {
+            <Alerta Tipo="informacion" Mensaje="@MensajeEstado(Estado.Actual.EstadoCuenta)" />
+        }
+        <ErrorBoundary @ref="_limite">
+            <ChildContent>@Body</ChildContent>
+            <ErrorContent>
+                <EstadoError Titulo="No se pudo mostrar la sección" Mensaje="Recargue la página si la sección no vuelve a aparecer." />
+            </ErrorContent>
+        </ErrorBoundary>
+    </text>;
+
+    private async Task AplicarSesionAsync()
+    {
+        if (Estado.Cargando)
+        {
+            return;
+        }
+
+        if (!Estado.Actual.Autenticado)
+        {
+            _listo = true;
+            Navegacion.NavigateTo("/login");
+            return;
+        }
+
+        if (Estado.Actual.RequiereCompletarIngreso)
+        {
+            _listo = true;
+            Navegacion.NavigateTo("/primer-ingreso");
+            return;
+        }
+
+        await Tema.CargarAsync(Estado.Actual.TemaPreferido);
+        _listo = true;
+    }
+
+    private void AlternarMenu() => _menuCuenta = !_menuCuenta;
+
+    private void CerrarMenu() => _menuCuenta = false;
+
+    private void IrPerfil()
+    {
+        _menuCuenta = false;
+        Navegacion.NavigateTo("/perfil");
+    }
+
+    private void AbrirTema()
+    {
+        _menuCuenta = false;
+        _temas?.Abrir();
+    }
+
+    private async Task CerrarSesion()
+    {
+        _menuCuenta = false;
+        _errorCierre = null;
+        try
+        {
+            await Cliente.CerrarAsync();
+            await Estado.CargarAsync(Cliente);
+            Navegacion.NavigateTo("/login");
+        }
+        catch (HttpRequestException)
+        {
+            _errorCierre = "No se pudo cerrar la sesión.";
+        }
+    }
+
+    private void AlCambiarRuta(object? sender, LocationChangedEventArgs e)
+    {
+        _limite?.Recover();
+        _ = InvokeAsync(async () =>
+        {
+            await AplicarSesionAsync();
+            StateHasChanged();
+        });
+    }
+
+    private void Refrescar() => _ = InvokeAsync(async () =>
+    {
+        await AplicarSesionAsync();
+        StateHasChanged();
+    });
+
+    private static string PrimerNombre(string? nombres, string? nombre)
+    {
+        var fuente = string.IsNullOrWhiteSpace(nombres) ? nombre : nombres;
+        if (string.IsNullOrWhiteSpace(fuente))
+        {
+            return "Cuenta";
+        }
+
+        return fuente.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+    }
+
+    private static string MensajeEstado(string? estado) => estado switch
+    {
+        "PendienteAprobacion" => "La cuenta está pendiente de aprobación. El área elegida no otorga permisos de herramientas.",
+        "Rechazado" => "La solicitud de acceso no fue aceptada.",
+        "Inactivo" => "La cuenta no tiene acceso activo.",
+        _ => ""
+    };
+
+    public void Dispose()
+    {
+        Navegacion.LocationChanged -= AlCambiarRuta;
+        Estado.Cambio -= Refrescar;
+    }
+}

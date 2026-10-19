@@ -1,0 +1,131 @@
+@page "/estudios-clinicos/hojas-de-vida/{Id:guid}/soportes"
+@inject ClienteHojasVida Cliente
+
+@if (_cargando)
+{
+    <Cargando />
+}
+else if (_hoja is null)
+{
+    <EstadoVacio Mensaje="No se encontró la hoja de vida." />
+}
+else
+{
+    <EncabezadoPagina Titulo="Soportes" Descripcion="@($"{_hoja.NombreCompleto}. Diplomas y certificados se guardan. El PDF armado no.")" />
+
+    @if (_error is not null)
+    {
+        <Alerta Tipo="peligro" Mensaje="@_error" />
+    }
+
+    <ZonaArchivo Texto="Haz clic o arrastra archivos aquí" Ayuda="PDF o imagen, hasta 20 MB. Si el nombre ya existe, reemplaza ese soporte." Accept=".pdf,image/png,image/jpeg,image/webp" Multiple="true" AlCambiar="SubirAsync" />
+
+    @if (_hoja.Soportes.Count == 0)
+    {
+        <EstadoVacio Mensaje="Todavía no hay soportes." />
+    }
+    else
+    {
+        <ul class="lista-personas">
+            @foreach (var soporte in _hoja.Soportes)
+            {
+                <li class="persona-fila">
+                    <span>
+                        <strong>@soporte.Nombre</strong>
+                        <small>@(soporte.Tipo == "application/pdf" ? "PDF" : "Imagen")</small>
+                    </span>
+                    <span class="acciones-fila">
+                        <Boton Variante="secundario" AlActivar="() => MoverAsync(soporte.Id, -1)">Subir</Boton>
+                        <Boton Variante="secundario" AlActivar="() => MoverAsync(soporte.Id, 1)">Bajar</Boton>
+                        <Boton Variante="peligro" AlActivar="() => QuitarAsync(soporte.Id)">Quitar</Boton>
+                    </span>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private HojaVidaDto? _hoja;
+    private bool _cargando = true;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        _cargando = true;
+        try
+        {
+            _hoja = await Cliente.ObtenerAsync(Id);
+            _error = null;
+        }
+        catch (HttpRequestException)
+        {
+            _hoja = null;
+            _error = "No se pudieron cargar los soportes.";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    private async Task SubirAsync(InputFileChangeEventArgs cambio)
+    {
+        try
+        {
+            await Cliente.SubirSoportesAsync(Id, cambio.GetMultipleFiles(20).ToList());
+            await CargarAsync();
+        }
+        catch (Exception)
+        {
+            _error = "No se pudo subir. Use PDF, PNG, JPG o WebP de hasta 20 MB.";
+        }
+    }
+
+    private async Task MoverAsync(Guid soporteId, int delta)
+    {
+        if (_hoja is null)
+        {
+            return;
+        }
+
+        var ids = _hoja.Soportes.Select(item => item.Id).ToList();
+        var indice = ids.IndexOf(soporteId);
+        var destino = indice + delta;
+        if (indice < 0 || destino < 0 || destino >= ids.Count)
+        {
+            return;
+        }
+
+        (ids[indice], ids[destino]) = (ids[destino], ids[indice]);
+        try
+        {
+            await Cliente.OrdenarSoportesAsync(Id, ids);
+            await CargarAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo cambiar el orden.";
+        }
+    }
+
+    private async Task QuitarAsync(Guid soporteId)
+    {
+        try
+        {
+            await Cliente.EliminarSoporteAsync(Id, soporteId);
+            await CargarAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudo quitar el soporte.";
+        }
+    }
+}
