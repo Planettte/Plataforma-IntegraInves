@@ -62,7 +62,7 @@ public sealed class AgendaController : ControllerBase
             Personas = asigna ? personas : [propia],
             Citas = fuente.Where(item => item.Fecha == dia).OrderBy(item => item.HoraInicio).Select(cita => Mapa(cita, actor)).ToList(),
             Monitorias = ambito == "estudios"
-                ? _agenda.Monitorias().Where(item => item.Fecha == dia).Select(Mapa).ToList()
+                ? _agenda.Monitorias().Where(item => item.Fecha == dia).Select(item => Mapa(item, actor)).ToList()
                 : [],
             FestivosMes = festivos.Where(item => item.Year == dia.Year && item.Month == dia.Month).Select(item => item.ToString("yyyy-MM-dd")).ToList(),
             DiasOcupados = fuente
@@ -112,7 +112,7 @@ public sealed class AgendaController : ControllerBase
     [HttpGet("publico/dia")]
     public async Task<ActionResult<DiaAgendaDto>> Publico([FromQuery] string fecha, CancellationToken ct)
     {
-        if (await ActorAsync(ct) is null)
+        if (await ActorAsync(ct) is not Actor actor)
         {
             return Forbid();
         }
@@ -132,7 +132,7 @@ public sealed class AgendaController : ControllerBase
             AgendaPropia = ReglasAgenda.Medicos,
             Persona = "Médicos",
             Citas = medicos.Where(item => item.Fecha == dia).OrderBy(item => item.HoraInicio).Select(MapaPublico).ToList(),
-            Monitorias = _agenda.Monitorias().Where(item => item.Fecha == dia).Select(Mapa).ToList(),
+            Monitorias = _agenda.Monitorias().Where(item => item.Fecha == dia).Select(item => Mapa(item, actor)).ToList(),
             FestivosMes = festivos.Where(item => item.Year == dia.Year && item.Month == dia.Month).Select(item => item.ToString("yyyy-MM-dd")).ToList(),
             DiasOcupados = medicos
                 .Where(item => item.Fecha.Year == dia.Year && item.Fecha.Month == dia.Month)
@@ -206,6 +206,12 @@ public sealed class AgendaController : ControllerBase
         }
 
         var id = solicitud.Id ?? Guid.NewGuid();
+        var existente = solicitud.Id is null ? null : _agenda.Monitorias().FirstOrDefault(item => item.Id == id);
+        if (solicitud.Id is not null && (existente is null || !EsCreador(actor, existente)))
+        {
+            return Forbid();
+        }
+
         var delDia = _agenda.Monitorias().Where(item => item.Fecha == fecha && item.Id != id).ToList();
         if (solicitud.Id is null && delDia.Count >= 2)
         {
@@ -217,17 +223,19 @@ public sealed class AgendaController : ControllerBase
             Id = id,
             Fecha = fecha,
             Descripcion = solicitud.Descripcion.Trim(),
-            CreadoPorPersona = actor.Usuario.Nombre
+            CreadoPorPersona = existente?.CreadoPorPersona is { Length: > 0 } nombre ? nombre : actor.Usuario.Nombre,
+            CreadoPorCorreo = existente?.CreadoPorCorreo is { Length: > 0 } correo ? correo : actor.Usuario.CorreoElectronico
         };
         _agenda.GuardarMonitoria(monitoria);
-        return Mapa(monitoria);
+        return Mapa(monitoria, actor);
     }
 
     [HttpDelete("{ambito}/monitorias/{id:guid}")]
     public async Task<IActionResult> EliminarMonitoria(string ambito, Guid id, CancellationToken ct)
     {
         var actor = await ActorAsync(ct);
-        if (actor is null || ambito != "estudios" || !Permiso(actor, ambito))
+        var monitoria = _agenda.Monitorias().FirstOrDefault(item => item.Id == id);
+        if (actor is null || monitoria is null || ambito != "estudios" || !Permiso(actor, ambito) || !EsCreador(actor, monitoria))
         {
             return Forbid();
         }
@@ -309,7 +317,12 @@ public sealed class AgendaController : ControllerBase
         }
         else
         {
-            var nombre = solicitud.Persona.Trim();
+            var nombre = solicitud.Persona?.Trim() ?? "";
+            if (nombre.Length == 0)
+            {
+                return BadRequest("Indica la persona.");
+            }
+
             destino = personas.FirstOrDefault(item => item.Agenda == agenda && string.Equals(item.Nombre, nombre, StringComparison.OrdinalIgnoreCase))
                 ?? new PersonaAgendaDto();
             if (string.IsNullOrWhiteSpace(destino.Nombre))
@@ -462,6 +475,15 @@ public sealed class AgendaController : ControllerBase
             .ToList();
     }
 
+    private static bool EsCreador(Actor actor, MonitoriaAgenda monitoria)
+    {
+        var correo = actor.Usuario.CorreoElectronico.Trim();
+        var correoCreador = monitoria.CreadoPorCorreo.Trim();
+        return correoCreador.Length > 0
+            && correo.Length > 0
+            && string.Equals(correoCreador, correo, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool EsCreador(Actor actor, CitaAgenda cita)
     {
         var correo = actor.Usuario.CorreoElectronico.Trim();
@@ -551,12 +573,13 @@ public sealed class AgendaController : ControllerBase
         PuedeEditar = actor is not null && EsCreador(actor, cita)
     };
 
-    private static MonitoriaAgendaDto Mapa(MonitoriaAgenda monitoria) => new()
+    private static MonitoriaAgendaDto Mapa(MonitoriaAgenda monitoria, Actor? actor = null) => new()
     {
         Id = monitoria.Id,
         Fecha = monitoria.Fecha.ToString("yyyy-MM-dd"),
         Descripcion = monitoria.Descripcion,
-        CreadoPorPersona = monitoria.CreadoPorPersona
+        CreadoPorPersona = monitoria.CreadoPorPersona,
+        PuedeQuitar = actor is not null && EsCreador(actor, monitoria)
     };
 
     private async Task<Actor?> ActorAsync(CancellationToken ct)

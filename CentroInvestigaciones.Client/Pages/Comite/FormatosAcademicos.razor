@@ -190,8 +190,8 @@
                     <tr>
                         <td>@partida.Item</td>
                         <td><input class="campo-en-linea" placeholder="horas" @bind="partida.Horas" @bind:event="oninput" /></td>
-                        <td><input class="campo-en-linea" placeholder="$" @bind="partida.Valor" @bind:event="oninput" /></td>
-                        <td><input class="campo-en-linea" placeholder="responsable" @bind="partida.Responsable" @bind:event="oninput" /></td>
+                        <td><input class="campo-en-linea" placeholder="$" readonly="@ValorFijo(partida)" @bind="partida.Valor" @bind:event="oninput" /></td>
+                        <td><input class="campo-en-linea" placeholder="responsable" readonly="@ResponsableFijo(partida)" @bind="partida.Responsable" @bind:event="oninput" /></td>
                         <td><input class="campo-en-linea" placeholder="observaciones" @bind="partida.Observaciones" @bind:event="oninput" /></td>
                     </tr>
                 }
@@ -316,6 +316,8 @@
         }
     }
 
+    [Parameter] public CostosComiteDto Costos { get; set; } = new();
+
     [Parameter, EditorRequired] public FormatosAcademicosDto Formatos { get; set; } = new();
     [Parameter, EditorRequired] public GuardarFase1EstudioDto Datos { get; set; } = new();
 
@@ -334,6 +336,14 @@
     private AcuerdoConfidencialidadEstudioDto Acuerdo => Formatos.Acuerdo;
     private FormularioRegistroEstudioDto Registro => Formatos.Registro;
     private ResumenAnaliticoEstudioDto Resumen => Formatos.Resumen;
+
+    private bool ValorFijo(PartidaPresupuestoEstudioDto partida) =>
+        partida.Item == "COSTO COMITÉ DE ETICA" && !string.IsNullOrWhiteSpace(Costos.ValorEtica)
+        || partida.Item == "COSTOS COMITÉ DE INVESTIGACION" && !string.IsNullOrWhiteSpace(Costos.ValorInvestigacion);
+
+    private bool ResponsableFijo(PartidaPresupuestoEstudioDto partida) =>
+        partida.Item == "COSTO COMITÉ DE ETICA" && !string.IsNullOrWhiteSpace(Costos.ResponsableEtica)
+        || partida.Item == "COSTOS COMITÉ DE INVESTIGACION" && !string.IsNullOrWhiteSpace(Costos.ResponsableInvestigacion);
 
     private string TotalPresupuesto
     {

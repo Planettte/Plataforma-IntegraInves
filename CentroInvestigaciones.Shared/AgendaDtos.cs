@@ -97,6 +97,8 @@ public sealed class MonitoriaAgendaDto
     public string Descripcion { get; set; } = "";
 
     public string CreadoPorPersona { get; set; } = "";
+
+    public bool PuedeQuitar { get; set; }
 }
 
 public sealed class MarcarImportanteDto

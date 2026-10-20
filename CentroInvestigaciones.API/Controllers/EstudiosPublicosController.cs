@@ -17,13 +17,28 @@ public sealed class EstudiosPublicosController : ControllerBase
     private readonly ServicioFlujoEstudios _flujo;
     private readonly RetoCaptcha _captcha;
     private readonly OrigenPublico _origen;
+    private readonly IAlmacenCostosComite _costos;
 
-    public EstudiosPublicosController(IAlmacenEstudios almacen, ServicioFlujoEstudios flujo, RetoCaptcha captcha, OrigenPublico origen)
+    public EstudiosPublicosController(IAlmacenEstudios almacen, ServicioFlujoEstudios flujo, RetoCaptcha captcha, OrigenPublico origen, IAlmacenCostosComite costos)
     {
         _almacen = almacen;
         _flujo = flujo;
         _captcha = captcha;
         _origen = origen;
+        _costos = costos;
+    }
+
+    [HttpGet("costos-comite")]
+    public ActionResult<CostosComiteDto> Costos()
+    {
+        var costos = _costos.Leer();
+        return new CostosComiteDto
+        {
+            ValorEtica = costos.ValorEtica,
+            ResponsableEtica = costos.ResponsableEtica,
+            ValorInvestigacion = costos.ValorInvestigacion,
+            ResponsableInvestigacion = costos.ResponsableInvestigacion
+        };
     }
 
     private ActionResult? SinCaptcha() =>

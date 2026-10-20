@@ -314,3 +314,18 @@ public sealed class ActividadCronogramaEstudio
 
     public string MesFinal { get; set; } = "";
 }
+
+public sealed class CostosComite
+{
+    public const string ItemEtica = "COSTO COMITÉ DE ETICA";
+
+    public const string ItemInvestigacion = "COSTOS COMITÉ DE INVESTIGACION";
+
+    public string ValorEtica { get; set; } = "";
+
+    public string ResponsableEtica { get; set; } = "";
+
+    public string ValorInvestigacion { get; set; } = "";
+
+    public string ResponsableInvestigacion { get; set; } = "";
+}

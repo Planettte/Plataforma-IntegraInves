@@ -31,7 +31,32 @@
 <div class="historial-enlace">
     <span>Enlace para un registro nuevo</span>
     <input class="entrada" readonly value="@EnlaceNuevo" />
+    <Boton Variante="secundario" AlActivar="AbrirCostos">Costos comité</Boton>
 </div>
+
+<Modal Visible="_costosAbiertos" Titulo="Costos comité" AlCerrar="CerrarCostos">
+    <ChildContent>
+        <p class="ayuda-modal">Si dejas un campo vacío, quien diligencia el resumen analítico lo completa.</p>
+        <div class="campo">
+            <label>Costo comité de ética</label>
+            <input class="entrada" placeholder="Valor" @bind="_costos.ValorEtica" />
+            <input class="entrada" placeholder="Responsable del financiamiento" @bind="_costos.ResponsableEtica" />
+        </div>
+        <div class="campo">
+            <label>Costos comité de investigación</label>
+            <input class="entrada" placeholder="Valor" @bind="_costos.ValorInvestigacion" />
+            <input class="entrada" placeholder="Responsable del financiamiento" @bind="_costos.ResponsableInvestigacion" />
+        </div>
+        @if (!string.IsNullOrEmpty(_errorCostos))
+        {
+            <Alerta Tipo="peligro" Mensaje="@_errorCostos" />
+        }
+    </ChildContent>
+    <Pie>
+        <Boton Variante="secundario" AlActivar="CerrarCostos">Cancelar</Boton>
+        <Boton Cargando="_guardandoCostos" AlActivar="GuardarCostosAsync">Guardar</Boton>
+    </Pie>
+</Modal>
 
 @if (_cargando && _registros.Count == 0)
 {
@@ -116,12 +141,51 @@ else
     private string _estado = "";
     private string _grupo = "";
     private DateTime _cargado = DateTime.Now;
+    private bool _costosAbiertos;
+    private bool _guardandoCostos;
+    private string? _errorCostos;
+    private CostosComiteDto _costos = new();
 
     private IEnumerable<EstudioResumenDto> DelTipo => _registros.Where(item => item.TipoRegistro == _tipo);
 
     private IEnumerable<EstudioResumenDto> Visibles => DelTipo.Where(Coincide);
 
     private string EnlaceNuevo => Navegacion.ToAbsoluteUri("comite/estudios/externo").ToString();
+
+    private async Task AbrirCostos()
+    {
+        _errorCostos = null;
+        try
+        {
+            _costos = await Cliente.CostosAsync();
+            _costosAbiertos = true;
+        }
+        catch (HttpRequestException)
+        {
+            _error = "No se pudieron leer los costos del comité.";
+        }
+    }
+
+    private void CerrarCostos() => _costosAbiertos = false;
+
+    private async Task GuardarCostosAsync()
+    {
+        _guardandoCostos = true;
+        _errorCostos = null;
+        try
+        {
+            _costos = await Cliente.GuardarCostosAsync(_costos);
+            _costosAbiertos = false;
+        }
+        catch (HttpRequestException)
+        {
+            _errorCostos = "No se pudieron guardar los costos.";
+        }
+        finally
+        {
+            _guardandoCostos = false;
+        }
+    }
 
     private string TextoTotal
     {

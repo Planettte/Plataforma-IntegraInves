@@ -288,3 +288,11 @@ public sealed class ActividadCronogramaEstudioDto
     public string MesInicial { get; set; } = "";
     public string MesFinal { get; set; } = "";
 }
+
+public sealed class CostosComiteDto
+{
+    public string ValorEtica { get; set; } = "";
+    public string ResponsableEtica { get; set; } = "";
+    public string ValorInvestigacion { get; set; } = "";
+    public string ResponsableInvestigacion { get; set; } = "";
+}

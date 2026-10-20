@@ -17,13 +17,40 @@ public sealed class EstudiosController : ControllerBase
     private readonly IAlmacenEstudios _almacen;
     private readonly ServicioFlujoEstudios _flujo;
     private readonly OrigenPublico _origen;
+    private readonly IAlmacenCostosComite _costos;
 
-    public EstudiosController(IAlmacenEstudios almacen, ServicioFlujoEstudios flujo, OrigenPublico origen)
+    public EstudiosController(IAlmacenEstudios almacen, ServicioFlujoEstudios flujo, OrigenPublico origen, IAlmacenCostosComite costos)
     {
         _almacen = almacen;
         _flujo = flujo;
         _origen = origen;
+        _costos = costos;
     }
+
+    [HttpGet("costos-comite")]
+    public ActionResult<CostosComiteDto> LeerCostos() => Mapa(_costos.Leer());
+
+    [HttpPut("costos-comite")]
+    public ActionResult<CostosComiteDto> GuardarCostos([FromBody] CostosComiteDto solicitud)
+    {
+        var costos = new CostosComite
+        {
+            ValorEtica = solicitud.ValorEtica ?? "",
+            ResponsableEtica = solicitud.ResponsableEtica ?? "",
+            ValorInvestigacion = solicitud.ValorInvestigacion ?? "",
+            ResponsableInvestigacion = solicitud.ResponsableInvestigacion ?? ""
+        };
+        _costos.Guardar(costos);
+        return Mapa(_costos.Leer());
+    }
+
+    private static CostosComiteDto Mapa(CostosComite costos) => new()
+    {
+        ValorEtica = costos.ValorEtica,
+        ResponsableEtica = costos.ResponsableEtica,
+        ValorInvestigacion = costos.ValorInvestigacion,
+        ResponsableInvestigacion = costos.ResponsableInvestigacion
+    };
 
     [HttpGet]
     public ActionResult<IReadOnlyList<EstudioResumenDto>> Listar()

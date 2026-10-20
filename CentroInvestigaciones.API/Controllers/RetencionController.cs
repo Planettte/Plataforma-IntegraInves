@@ -26,11 +26,41 @@ public sealed class RetencionController : ControllerBase
         solicitud.NumeroEstudio = (solicitud.NumeroEstudio ?? "").Trim();
         solicitud.Patrocinador = (solicitud.Patrocinador ?? "").Trim();
         solicitud.Contenido = (solicitud.Contenido ?? []).Select(valor => (valor ?? "").Trim()).Take(4).ToList();
-        solicitud.Direcciones ??= [];
-        solicitud.Prestamos ??= [];
+        solicitud.Direcciones = (solicitud.Direcciones ?? [])
+            .Where(fila => !DireccionVacia(fila))
+            .ToList();
+        solicitud.Prestamos = (solicitud.Prestamos ?? [])
+            .Where(fila => !PrestamoVacio(fila))
+            .ToList();
+
+        foreach (var fila in solicitud.Direcciones)
+        {
+            fila.Fecha1 = (fila.Fecha1 ?? "").Trim();
+            fila.Direccion1 = (fila.Direccion1 ?? "").Trim();
+            fila.Fecha2 = (fila.Fecha2 ?? "").Trim();
+            fila.Direccion2 = (fila.Direccion2 ?? "").Trim();
+            if (LadoIncompleto(fila.Fecha1, fila.Direccion1) || LadoIncompleto(fila.Fecha2, fila.Direccion2))
+            {
+                return BadRequest("Completa la fecha y la dirección.");
+            }
+        }
 
         foreach (var fila in solicitud.Prestamos)
         {
+            fila.FechaPrestamo = (fila.FechaPrestamo ?? "").Trim();
+            fila.NombreDocumento = (fila.NombreDocumento ?? "").Trim();
+            fila.Motivo = (fila.Motivo ?? "").Trim();
+            fila.NombreSolicitante = (fila.NombreSolicitante ?? "").Trim();
+            fila.FechaDevolucion = (fila.FechaDevolucion ?? "").Trim();
+            fila.FirmaSolicitante ??= "";
+            fila.FirmaRecibe ??= "";
+            if (string.IsNullOrWhiteSpace(fila.NombreDocumento)
+                || string.IsNullOrWhiteSpace(fila.Motivo)
+                || string.IsNullOrWhiteSpace(fila.NombreSolicitante))
+            {
+                return BadRequest("El préstamo debe indicar el documento, el motivo y el solicitante.");
+            }
+
             if (fila.FirmaSolicitante.Length > 2_000_000 || fila.FirmaRecibe.Length > 2_000_000)
             {
                 return BadRequest("La firma es demasiado grande.");
@@ -51,4 +81,21 @@ public sealed class RetencionController : ControllerBase
 
         return File(_pdf.Generar(solicitud), "application/pdf", $"{nombre}.pdf");
     }
+
+    private static bool DireccionVacia(DireccionRetencionDto fila) =>
+        Blanco(fila.Fecha1) && Blanco(fila.Direccion1) && Blanco(fila.Fecha2) && Blanco(fila.Direccion2);
+
+    private static bool PrestamoVacio(PrestamoRetencionDto fila) =>
+        Blanco(fila.FechaPrestamo)
+        && Blanco(fila.NombreDocumento)
+        && Blanco(fila.Motivo)
+        && Blanco(fila.NombreSolicitante)
+        && Blanco(fila.FirmaSolicitante)
+        && Blanco(fila.FechaDevolucion)
+        && Blanco(fila.FirmaRecibe);
+
+    private static bool LadoIncompleto(string fecha, string direccion) =>
+        Blanco(fecha) != Blanco(direccion);
+
+    private static bool Blanco(string? valor) => string.IsNullOrWhiteSpace(valor);
 }

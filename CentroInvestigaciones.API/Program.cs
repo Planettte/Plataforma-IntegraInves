@@ -98,6 +98,7 @@ builder.Services.AddSingleton<CentroInvestigaciones.Application.HojasVida.IAlmac
 builder.Services.AddSingleton<GeneradorPdfHojaVida>();
 builder.Services.AddSingleton<CentroInvestigaciones.Application.Estudios.IDepositoEstudios, DepositoEstudiosLocal>();
 builder.Services.AddSingleton<CentroInvestigaciones.Application.Estudios.IAlmacenEstudios, AlmacenEstudiosLocal>();
+builder.Services.AddSingleton<CentroInvestigaciones.Application.Estudios.IAlmacenCostosComite, AlmacenCostosComiteLocal>();
 builder.Services.AddSingleton<CentroInvestigaciones.Application.Estudios.IEnviadorCorreo, EnviadorCorreoSmtp>();
 builder.Services.AddSingleton<GeneradorPdfEstudio>();
 builder.Services.AddSingleton<CentroInvestigaciones.Application.Plantillas.IAlmacenPlantillas, AlmacenPlantillasLocal>();

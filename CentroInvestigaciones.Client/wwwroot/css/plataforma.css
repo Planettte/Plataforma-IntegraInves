@@ -1266,6 +1266,9 @@ th { color: var(--texto-suave); font-size: 0.82rem; font-weight: 650; }
     box-sizing: border-box;
 }
 .campo-en-linea.ancho { max-width: 100%; width: min(100%, 26rem); }
+.campo-en-linea[readonly] { background: var(--fila); }
+.ayuda-modal { margin: 0 0 0.9rem; color: var(--texto-suave); }
+.modal .campo .entrada + .entrada { margin-top: 0.45rem; }
 .formato-papel td .campo-en-linea,
 .formato-papel td .campo-en-linea.ancho,
 .formato-papel td select.campo-en-linea {

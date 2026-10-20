@@ -52,14 +52,24 @@ public sealed class FirmasInvestigadorLocal : IFirmasInvestigador
 
     public void Asegurar(string nombre, string titulo)
     {
-        var carpeta = Path.Combine(_carpeta, NombreCarpeta(nombre, titulo));
+        var carpeta = RutaSegura(nombre, titulo);
+        if (carpeta is null)
+        {
+            return;
+        }
+
         Directory.CreateDirectory(carpeta);
     }
 
     public void Renombrar(string nombreAnterior, string tituloAnterior, string nombre, string titulo)
     {
         var origen = Ruta(nombreAnterior, tituloAnterior);
-        var destino = Path.Combine(_carpeta, NombreCarpeta(nombre, titulo));
+        var destino = RutaSegura(nombre, titulo);
+        if (destino is null)
+        {
+            return;
+        }
+
         if (origen is not null && Directory.Exists(origen) && !string.Equals(origen, destino, StringComparison.OrdinalIgnoreCase))
         {
             Directory.CreateDirectory(Path.GetDirectoryName(destino)!);
@@ -93,6 +103,20 @@ public sealed class FirmasInvestigadorLocal : IFirmasInvestigador
 
     private static string Carpeta(string nombre, string titulo) =>
         string.IsNullOrWhiteSpace(titulo) ? nombre.Trim() : $"{nombre.Trim()} - {titulo.Trim()}";
+
+    private string? RutaSegura(string nombre, string titulo)
+    {
+        var limpio = NombreCarpeta(nombre, titulo);
+        if (limpio.Length == 0 || limpio is "." or ".." || limpio.Contains("..", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var raiz = Path.GetFullPath(_carpeta);
+        var ruta = Path.GetFullPath(Path.Combine(raiz, limpio));
+        var prefijo = raiz.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        return ruta.StartsWith(prefijo, StringComparison.OrdinalIgnoreCase) ? ruta : null;
+    }
 
     private static string NombreCarpeta(string nombre, string titulo)
     {

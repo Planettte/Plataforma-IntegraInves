@@ -45,9 +45,9 @@
                     @foreach (var item in _notificaciones)
                     {
                         <li class="@(item.Vista ? "vista" : null)" @onmouseover="() => VerNotificacionAsync(item)" @onclick="() => VerNotificacionAsync(item)">
-                            @if (!string.IsNullOrWhiteSpace(item.Enlace))
+                            @if (EnlaceInterno.EsRuta(item.Enlace))
                             {
-                                <a class="notificacion-ir" href="@item.Enlace" target="@(item.Enlace.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? "_blank" : null)" rel="noopener noreferrer">
+                                <a class="notificacion-ir" href="@item.Enlace">
                                     @CuerpoNotificacion(item)
                                 </a>
                             }

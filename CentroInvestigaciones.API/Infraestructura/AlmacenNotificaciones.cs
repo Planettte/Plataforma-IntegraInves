@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CentroInvestigaciones.Domain;
+using CentroInvestigaciones.Shared;
 
 namespace CentroInvestigaciones.API.Infraestructura;
 
@@ -37,7 +38,7 @@ public sealed class AlmacenNotificaciones
                 UsuarioId = usuarioId,
                 Titulo = titulo,
                 Mensaje = mensaje,
-                Enlace = enlace,
+                Enlace = EnlaceInterno.EsRuta(enlace) ? enlace.Trim() : "",
                 FechaUtc = DateTime.UtcNow
             });
             GuardarSinBloqueo();

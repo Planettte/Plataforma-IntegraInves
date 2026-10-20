@@ -36,7 +36,7 @@
     protected override async Task OnInitializedAsync()
     {
         var uri = Navegacion.ToAbsoluteUri(Navegacion.Uri);
-        _errorConfiguracion = uri.Query.Contains("error=configuracion", StringComparison.Ordinal);
+        _errorConfiguracion = TieneError(uri.Query, "configuracion");
 
         try
         {
@@ -61,5 +61,21 @@
         {
             _cargando = false;
         }
+    }
+
+    private static bool TieneError(string consulta, string codigo)
+    {
+        foreach (var parte in consulta.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var igual = parte.Split('=', 2);
+            if (igual.Length == 2
+                && string.Equals(Uri.UnescapeDataString(igual[0]), "error", StringComparison.Ordinal)
+                && string.Equals(Uri.UnescapeDataString(igual[1]), codigo, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

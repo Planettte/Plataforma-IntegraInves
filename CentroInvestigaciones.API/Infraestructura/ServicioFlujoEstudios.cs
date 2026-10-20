@@ -14,19 +14,22 @@ public sealed class ServicioFlujoEstudios
     private readonly GeneradorPdfEstudio _pdf;
     private readonly IAlmacenNucleo _nucleo;
     private readonly AlmacenNotificaciones _notificaciones;
+    private readonly IAlmacenCostosComite _costos;
 
     public ServicioFlujoEstudios(
         IAlmacenEstudios almacen,
         IEnviadorCorreo correo,
         GeneradorPdfEstudio pdf,
         IAlmacenNucleo nucleo,
-        AlmacenNotificaciones notificaciones)
+        AlmacenNotificaciones notificaciones,
+        IAlmacenCostosComite costos)
     {
         _almacen = almacen;
         _correo = correo;
         _pdf = pdf;
         _nucleo = nucleo;
         _notificaciones = notificaciones;
+        _costos = costos;
     }
 
     public async Task<(Estudio Estudio, bool CorreoEnviado)?> GuardarFase1Async(GuardarFase1EstudioDto solicitud, string? token, string origen, CancellationToken ct)
@@ -37,6 +40,7 @@ public sealed class ServicioFlujoEstudios
         }
 
         var datos = ADominio(solicitud);
+        AplicarCostos(datos);
         var estudio = string.IsNullOrWhiteSpace(token)
             ? _almacen.Crear(datos)
             : _almacen.ActualizarFase1(token, datos);
@@ -75,6 +79,7 @@ public sealed class ServicioFlujoEstudios
         }
 
         var estudio = ADominio(solicitud);
+        AplicarCostos(estudio);
         var firmas = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         AgregarFirma(firmas, ClavesArchivoEstudio.FirmaCartaSolicitud, solicitud.FirmaCartaSolicitud);
         AgregarFirma(firmas, ClavesArchivoEstudio.FirmaCartaIntencion, solicitud.FirmaCartaIntencion);
@@ -84,6 +89,35 @@ public sealed class ServicioFlujoEstudios
         var generado = _pdf.GenerarAcademicos(estudio, firmas);
         var item = generado[formato - 1];
         return (item.Pdf, item.Nombre);
+    }
+
+    private void AplicarCostos(Estudio estudio)
+    {
+        var costos = _costos.Leer();
+        foreach (var partida in estudio.Formatos.Resumen.Presupuesto)
+        {
+            if (partida.Item == CostosComite.ItemEtica)
+            {
+                Asignar(partida, costos.ValorEtica, costos.ResponsableEtica);
+            }
+            else if (partida.Item == CostosComite.ItemInvestigacion)
+            {
+                Asignar(partida, costos.ValorInvestigacion, costos.ResponsableInvestigacion);
+            }
+        }
+    }
+
+    private static void Asignar(PartidaPresupuestoEstudio partida, string valor, string responsable)
+    {
+        if (!string.IsNullOrWhiteSpace(valor))
+        {
+            partida.Valor = valor.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(responsable))
+        {
+            partida.Responsable = responsable.Trim();
+        }
     }
 
     private static void AgregarFirma(Dictionary<string, byte[]> firmas, string clave, string? valor)

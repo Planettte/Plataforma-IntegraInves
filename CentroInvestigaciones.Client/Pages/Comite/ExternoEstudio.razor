@@ -233,6 +233,7 @@ else
     @if (_form.TipoRegistro == "academico")
     {
         <FormatosAcademicos Datos="_form"
+                            Costos="_costos"
                             Formatos="_form.Formatos"
                             FirmaCarta="_form.FirmaCartaSolicitud"
                             FirmaIntencion="_form.FirmaCartaIntencion"
@@ -297,6 +298,7 @@ else
     private bool _ocupado;
     private int _claveAdjuntos;
     private string? _tokenCreado;
+    private CostosComiteDto _costos = new();
     private List<AdjuntoPendiente> _adjuntos = [];
     private List<ArchivoEstudioDto> _archivos = [];
     private AdjuntoPendiente? _fase2Aval;
@@ -323,6 +325,15 @@ else
         {
             _cargando = false;
             return;
+        }
+
+        try
+        {
+            _costos = await Cliente.CostosPublicosAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _costos = new CostosComiteDto();
         }
 
         PrepararListas();
@@ -594,9 +605,34 @@ else
             }
         }
 
+        foreach (var partida in resumen.Presupuesto)
+        {
+            if (partida.Item == "COSTO COMITÉ DE ETICA")
+            {
+                CopiarCosto(partida, _costos.ValorEtica, _costos.ResponsableEtica);
+            }
+            else if (partida.Item == "COSTOS COMITÉ DE INVESTIGACION")
+            {
+                CopiarCosto(partida, _costos.ValorInvestigacion, _costos.ResponsableInvestigacion);
+            }
+        }
+
         while (resumen.Cronograma.Count < 6)
         {
             resumen.Cronograma.Add(new ActividadCronogramaEstudioDto());
+        }
+    }
+
+    private static void CopiarCosto(PartidaPresupuestoEstudioDto partida, string valor, string responsable)
+    {
+        if (!string.IsNullOrWhiteSpace(valor))
+        {
+            partida.Valor = valor;
+        }
+
+        if (!string.IsNullOrWhiteSpace(responsable))
+        {
+            partida.Responsable = responsable;
         }
     }
 

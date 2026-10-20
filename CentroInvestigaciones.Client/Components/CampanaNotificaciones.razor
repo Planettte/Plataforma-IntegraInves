@@ -29,7 +29,7 @@
                     @foreach (var aviso in _avisos)
                     {
                         <li class="@(aviso.Vista ? "vista" : null)" @onmouseover="() => VerAsync(aviso)">
-                            @if (!string.IsNullOrWhiteSpace(aviso.Enlace))
+                            @if (EnlaceInterno.EsRuta(aviso.Enlace))
                             {
                                 <a href="@aviso.Enlace" @onclick="Cerrar">
                                     <strong>@aviso.Titulo</strong>

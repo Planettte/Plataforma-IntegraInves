@@ -176,12 +176,18 @@
             return;
         }
 
+        var envio = Preparar();
+        if (envio is null)
+        {
+            return;
+        }
+
         _generando = true;
         _error = null;
         var inicio = DateTime.UtcNow;
         try
         {
-            var (bytes, nombre) = await Cliente.PdfAsync(_datos);
+            var (bytes, nombre) = await Cliente.PdfAsync(envio);
             await Js.InvokeVoidAsync("centroArchivo.descargar", nombre, Convert.ToBase64String(bytes));
             Avisos.Completado();
         }
@@ -195,6 +201,72 @@
             _generando = false;
         }
     }
+
+    private RetencionDocumentalDto? Preparar()
+    {
+        foreach (var fila in _datos.Direcciones.Where(fila => !DireccionVacia(fila)))
+        {
+            if (LadoIncompleto(fila.Fecha1, fila.Direccion1) || LadoIncompleto(fila.Fecha2, fila.Direccion2))
+            {
+                _error = "Completa la fecha y la dirección.";
+                return null;
+            }
+        }
+
+        foreach (var fila in _datos.Prestamos.Where(fila => !PrestamoVacio(fila)))
+        {
+            if (Blanco(fila.NombreDocumento) || Blanco(fila.Motivo) || Blanco(fila.NombreSolicitante))
+            {
+                _error = "El préstamo debe indicar el documento, el motivo y el solicitante.";
+                return null;
+            }
+        }
+
+        return new RetencionDocumentalDto
+        {
+            NumeroEstudio = _datos.NumeroEstudio?.Trim() ?? "",
+            Patrocinador = _datos.Patrocinador?.Trim() ?? "",
+            Contenido = _datos.Contenido.Select(valor => valor?.Trim() ?? "").Take(4).ToList(),
+            Direcciones = _datos.Direcciones.Where(fila => !DireccionVacia(fila)).Select(CopiarDireccion).ToList(),
+            Prestamos = _datos.Prestamos.Where(fila => !PrestamoVacio(fila)).Select(CopiarPrestamo).ToList()
+        };
+    }
+
+    private static DireccionRetencionDto CopiarDireccion(DireccionRetencionDto fila) => new()
+    {
+        Fecha1 = fila.Fecha1?.Trim() ?? "",
+        Direccion1 = fila.Direccion1?.Trim() ?? "",
+        Fecha2 = fila.Fecha2?.Trim() ?? "",
+        Direccion2 = fila.Direccion2?.Trim() ?? ""
+    };
+
+    private static PrestamoRetencionDto CopiarPrestamo(PrestamoRetencionDto fila) => new()
+    {
+        FechaPrestamo = fila.FechaPrestamo?.Trim() ?? "",
+        NombreDocumento = fila.NombreDocumento?.Trim() ?? "",
+        Motivo = fila.Motivo?.Trim() ?? "",
+        NombreSolicitante = fila.NombreSolicitante?.Trim() ?? "",
+        FirmaSolicitante = fila.FirmaSolicitante ?? "",
+        FechaDevolucion = fila.FechaDevolucion?.Trim() ?? "",
+        FirmaRecibe = fila.FirmaRecibe ?? ""
+    };
+
+    private static bool DireccionVacia(DireccionRetencionDto fila) =>
+        Blanco(fila.Fecha1) && Blanco(fila.Direccion1) && Blanco(fila.Fecha2) && Blanco(fila.Direccion2);
+
+    private static bool PrestamoVacio(PrestamoRetencionDto fila) =>
+        Blanco(fila.FechaPrestamo)
+        && Blanco(fila.NombreDocumento)
+        && Blanco(fila.Motivo)
+        && Blanco(fila.NombreSolicitante)
+        && Blanco(fila.FirmaSolicitante)
+        && Blanco(fila.FechaDevolucion)
+        && Blanco(fila.FirmaRecibe);
+
+    private static bool LadoIncompleto(string? fecha, string? direccion) =>
+        Blanco(fecha) != Blanco(direccion);
+
+    private static bool Blanco(string? valor) => string.IsNullOrWhiteSpace(valor);
 
     private static string Fecha(ChangeEventArgs evento) => evento.Value?.ToString() ?? "";
 

@@ -36,4 +36,6 @@ public sealed class MonitoriaAgenda
     public string Descripcion { get; set; } = "";
 
     public string CreadoPorPersona { get; set; } = "";
+
+    public string CreadoPorCorreo { get; set; } = "";
 }

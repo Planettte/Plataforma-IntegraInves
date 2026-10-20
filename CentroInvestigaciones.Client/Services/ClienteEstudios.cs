@@ -14,6 +14,21 @@ public sealed class ClienteEstudios
         _http = http;
     }
 
+    public async Task<CostosComiteDto> CostosAsync() =>
+        await _http.GetFromJsonAsync<CostosComiteDto>("api/estudios/costos-comite") ?? new CostosComiteDto();
+
+    public async Task<CostosComiteDto> GuardarCostosAsync(CostosComiteDto costos)
+    {
+        using var mensaje = Solicitud(HttpMethod.Put, "api/estudios/costos-comite");
+        mensaje.Content = JsonContent.Create(costos);
+        using var respuesta = await _http.SendAsync(mensaje);
+        respuesta.EnsureSuccessStatusCode();
+        return await respuesta.Content.ReadFromJsonAsync<CostosComiteDto>() ?? new CostosComiteDto();
+    }
+
+    public async Task<CostosComiteDto> CostosPublicosAsync() =>
+        await _http.GetFromJsonAsync<CostosComiteDto>("api/estudios/publico/costos-comite") ?? new CostosComiteDto();
+
     public async Task<IReadOnlyList<EstudioResumenDto>> ListarAsync()
     {
         return await _http.GetFromJsonAsync<List<EstudioResumenDto>>("api/estudios") ?? [];

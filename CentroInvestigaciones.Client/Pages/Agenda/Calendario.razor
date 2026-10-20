@@ -172,7 +172,10 @@ else
                                     {
                                         <li>
                                             <span><strong>@monitoria.Descripcion</strong></span>
-                                            <Boton Variante="peligro" AlActivar="() => QuitarMonitoriaAsync(monitoria.Id)">Quitar</Boton>
+                                            @if (monitoria.PuedeQuitar)
+                                            {
+                                                <Boton Variante="peligro" AlActivar="() => QuitarMonitoriaAsync(monitoria.Id)">Quitar</Boton>
+                                            }
                                         </li>
                                     }
                                 </ul>
@@ -847,6 +850,11 @@ else
         {
             foreach (var destino in Destinos())
             {
+                if (destino.UsuarioId is null && string.IsNullOrWhiteSpace(destino.Nombre))
+                {
+                    fallos.Add("Indica la persona.");
+                    continue;
+                }
                 foreach (var fecha in Fechas())
                 {
                     try

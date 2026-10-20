@@ -148,11 +148,11 @@ Inventario con semáforo de mantenimiento, calibración y verificación. El corr
 | Permiso interno | `herramientas.comite.estudios` |
 | Pantallas | `Pages/Comite/Estudios.razor`, `EstudioDetalle.razor`, `ExternoEstudio.razor`, `FormatosAcademicos.razor` |
 | API | `EstudiosController`, `EstudiosPublicosController` |
-| Datos | `datos-locales/estudios.json` y archivos en `estudios-archivos/` |
+| Datos | `datos-locales/estudios.json`, `datos-locales/costos-comite.json` y archivos en `estudios-archivos/` |
 | PDF | `GeneradorPdfEstudio` |
 | Correo | `ServicioFlujoEstudios`, `EnviadorCorreoSmtp` |
 
-El externo llena la fase 1 con un enlace de token. Los formatos son carta de solicitud, carta de intención, acuerdo de confidencialidad, formulario de registro y resumen analítico. El botón de PDF espera 5 segundos entre clics. El comité corrige o da el aval. Luego el externo cierra la fase 2. Estados: recepción incompleta, aprobado por el comité, fase 2 en revisión, aprobado por el CEI.
+El comité puede fijar el valor y el responsable de las filas de costo del comité de ética y del comité de investigación. Si un campo queda vacío, el externo lo completa. El externo llena la fase 1 con un enlace de token. Los formatos son carta de solicitud, carta de intención, acuerdo de confidencialidad, formulario de registro y resumen analítico. El botón de PDF espera 5 segundos entre clics. El comité corrige o da el aval. Luego el externo cierra la fase 2. Estados: recepción incompleta, aprobado por el comité, fase 2 en revisión, aprobado por el CEI.
 
 ### Formulario de protocolos
 
