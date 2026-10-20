@@ -9,7 +9,7 @@ namespace CentroInvestigaciones.API.Infraestructura;
 
 public sealed class AvisadorDispositivos
 {
-    public const string CorreoPredeterminado = "medico.investigador3@foscal.com.co";
+    public const string CorreoPredeterminado = "";
     public const string Ruta = "/estudios-clinicos/inventario-dispositivos";
     private static readonly TimeSpan IntervaloCorreo = TimeSpan.FromDays(7);
 
@@ -18,29 +18,23 @@ public sealed class AvisadorDispositivos
     private readonly AlmacenNotificaciones _notificaciones;
     private readonly IServiceScopeFactory _alcances;
     private readonly ILogger<AvisadorDispositivos> _registro;
+    private readonly OrigenPublico _origen;
     private readonly SemaphoreSlim _serie = new(1, 1);
-    private string _origen = "https://localhost:7029";
 
     public AvisadorDispositivos(
         IAlmacenDispositivos almacen,
         IEnviadorCorreo correo,
         AlmacenNotificaciones notificaciones,
         IServiceScopeFactory alcances,
-        ILogger<AvisadorDispositivos> registro)
+        ILogger<AvisadorDispositivos> registro,
+        OrigenPublico origen)
     {
         _almacen = almacen;
         _correo = correo;
         _notificaciones = notificaciones;
         _alcances = alcances;
         _registro = registro;
-    }
-
-    public void RecordarOrigen(string origen)
-    {
-        if (!string.IsNullOrWhiteSpace(origen))
-        {
-            _origen = origen.TrimEnd('/');
-        }
+        _origen = origen;
     }
 
     public async Task RevisarAsync(CancellationToken ct)
@@ -74,7 +68,7 @@ public sealed class AvisadorDispositivos
 
         var destino = _almacen.CorreoEncargado();
         var envioOk = true;
-        if (_correo.EstaConfigurado && !string.IsNullOrWhiteSpace(destino))
+        if (_correo.EstaConfigurado && !string.IsNullOrWhiteSpace(destino) && _origen.Configurado)
         {
             envioOk = await _correo.EnviarAsync(
                 destino,
@@ -83,7 +77,7 @@ public sealed class AvisadorDispositivos
                     "Dispositivos en rojo",
                     "",
                     Cuerpo(episodios),
-                    $"{_origen}{Ruta}",
+                    $"{_origen.Valor}{Ruta}",
                     "Abrir el inventario",
                     "Inventario de dispositivos"),
                 null,

@@ -20,6 +20,9 @@ public sealed class ClienteProtocolos
     }
 
     public async Task<IReadOnlyList<RevisorProtocoloDto>> RevisoresAsync() =>
+        await _http.GetFromJsonAsync<List<RevisorProtocoloDto>>("api/protocolos/revisores") ?? [];
+
+    public async Task<IReadOnlyList<RevisorProtocoloDto>> RevisoresPublicosAsync() =>
         await _http.GetFromJsonAsync<List<RevisorProtocoloDto>>("api/protocolos/publico/revisores") ?? [];
 
     public async Task<ProtocoloDto?> ObtenerPublicoAsync(string token)

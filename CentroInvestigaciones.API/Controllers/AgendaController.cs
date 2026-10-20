@@ -109,10 +109,14 @@ public sealed class AgendaController : ControllerBase
         return ConsultaAgenda.Buscar(fuente, texto, inicio, fin).Select(cita => Mapa(cita, actor)).ToList();
     }
 
-    [AllowAnonymous]
     [HttpGet("publico/dia")]
-    public ActionResult<DiaAgendaDto> Publico([FromQuery] string fecha)
+    public async Task<ActionResult<DiaAgendaDto>> Publico([FromQuery] string fecha, CancellationToken ct)
     {
+        if (await ActorAsync(ct) is null)
+        {
+            return Forbid();
+        }
+
         if (!DateOnly.TryParse(fecha, out var dia))
         {
             return BadRequest("Indica la fecha.");
@@ -143,10 +147,14 @@ public sealed class AgendaController : ControllerBase
         };
     }
 
-    [AllowAnonymous]
     [HttpGet("publico/buscar")]
-    public ActionResult<List<CitaAgendaDto>> BuscarPublico([FromQuery] string? texto, [FromQuery] string? desde, [FromQuery] string? hasta)
+    public async Task<ActionResult<List<CitaAgendaDto>>> BuscarPublico([FromQuery] string? texto, [FromQuery] string? desde, [FromQuery] string? hasta, CancellationToken ct)
     {
+        if (await ActorAsync(ct) is null)
+        {
+            return Forbid();
+        }
+
         if (!Rango(desde, hasta, out var inicio, out var fin, out var error))
         {
             return BadRequest(error);
@@ -458,16 +466,9 @@ public sealed class AgendaController : ControllerBase
     {
         var correo = actor.Usuario.CorreoElectronico.Trim();
         var correoCreador = cita.CreadoPorCorreo.Trim();
-        if (correoCreador.Length > 0 && correo.Length > 0)
-        {
-            return string.Equals(correoCreador, correo, StringComparison.OrdinalIgnoreCase);
-        }
-
-        var nombre = actor.Usuario.Nombre.Trim();
-        var nombreCreador = cita.CreadoPorPersona.Trim();
-        return nombreCreador.Length > 0
-            && nombre.Length > 0
-            && string.Equals(nombreCreador, nombre, StringComparison.OrdinalIgnoreCase);
+        return correoCreador.Length > 0
+            && correo.Length > 0
+            && string.Equals(correoCreador, correo, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool PuedeAsignar(Actor actor, string ambito)

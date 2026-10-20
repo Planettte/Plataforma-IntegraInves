@@ -1,6 +1,6 @@
 # Paso a SQL Server y al bucket de Google
 
-Hoy la API arranca, prueba la cadena `ConnectionStrings:Centro` y, si SQL no responde, usa `datos-locales/*.json`. Los archivos de usuario van a carpetas locales detrás de `IDepositoArchivos` e `IDepositoEstudios`. Este archivo dice qué hay que pedir y en qué orden enlazarlos. No hace falta reescribir las pantallas.
+Hoy, en desarrollo, la API arranca, prueba la cadena `ConnectionStrings:Centro` y, si SQL no responde, usa `datos-locales/*.json`. Fuera de desarrollo, si SQL no responde, la API no inicia. Los archivos de usuario van a carpetas locales detrás de `IDepositoArchivos` e `IDepositoEstudios`. Este archivo dice qué hay que pedir y en qué orden enlazarlos. No hace falta reescribir las pantallas.
 
 ## Qué pedir para SQL Server
 

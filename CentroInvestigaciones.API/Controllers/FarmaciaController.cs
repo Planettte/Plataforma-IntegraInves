@@ -50,7 +50,7 @@ public sealed class FarmaciaController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(FarmaciaController));
         }
     }
 

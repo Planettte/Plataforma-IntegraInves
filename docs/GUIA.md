@@ -17,7 +17,7 @@ El diseño visual vive en un solo archivo: `CentroInvestigaciones.Client/wwwroot
 
 El cliente se publica desde la misma API. En desarrollo: `https://localhost:7029` con `dotnet run --launch-profile https` desde `CentroInvestigaciones.API`.
 
-La sesión es una cookie HttpOnly (`CentroInvestigaciones.Sesion`), no un JWT en el navegador. Google identifica a la persona; la cuenta de la plataforma (estado, área, cargo, permisos) es aparte. Un ingreso de Google puede quedar pendiente de aprobación.
+La sesión es una cookie HttpOnly (`CentroInvestigaciones.Sesion`), no un JWT en el navegador. Google identifica a la persona; la cuenta de la plataforma (estado, área, cargo, permisos) es aparte. Un ingreso de Google puede quedar pendiente de aprobación. Las áreas son Estudios Clínicos, Diseño y desarrollo y Comité de investigaciones. Los enlaces externos de estudios y de protocolos piden un código antes de abrir el formulario.
 
 Cada escritura a `/api` (POST, PUT, PATCH, DELETE) exige el encabezado `X-Centro-Solicitud: 1`. El cliente lo manda en `ClienteSesion.EncabezadoSolicitud`. Las lecturas GET no lo necesitan.
 
@@ -36,7 +36,7 @@ Los permisos usan el código `area.modulo.accion`. La API los exige con `Requier
 | Diseño | `Client/wwwroot/css/plataforma.css` |
 | Distribución de la pantalla | `Client/Layout/MainLayout.razor` |
 
-Funciones del núcleo: ingresar con Google, completar perfil, aprobar o rechazar cuentas, asignar área, cargo y herramientas, consultar auditoría. Mientras SQL no responde, eso se guarda en `API/datos-locales/nucleo.json`.
+Funciones del núcleo: ingresar con Google, completar perfil, aprobar o rechazar cuentas, asignar área, cargo y herramientas, consultar auditoría. En desarrollo, si SQL no responde, eso se guarda en `API/datos-locales/nucleo.json`. Fuera de desarrollo la API no inicia si SQL no responde.
 
 ## Cómo ejecutarla
 
@@ -56,7 +56,7 @@ dotnet dev-certs https --trust
 
 Google y los secretos están en user-secrets del proyecto API, no en el código. La URI de redirección de desarrollo es `https://localhost:7029/api/sesion/google-respuesta`.
 
-Si SQL Server no responde, la API no se cae: usa los JSON de `datos-locales`. Esa carpeta no se sube a git. El administrador inicial sale de `Autenticacion:AdministradorInicial`; si esa clave está vacía, se usa el respaldo de `API/Infraestructura/DesarrolloLocal.cs`. En el primer ingreso hay que completar nombres, apellidos, contacto, extensión, cargo y área.
+En desarrollo, si SQL Server no responde, la API usa los JSON de `datos-locales`. Esa carpeta no se sube a git. Fuera de desarrollo, si SQL no responde, la API no inicia. Los enlaces de los correos salen de `Plataforma:OrigenPublico` (en desarrollo, `https://localhost:7029`). Si esa clave está vacía, el registro se guarda y el correo que lleva enlace no se envía. El administrador inicial sale solo de `Autenticacion:AdministradorInicial`. El buzón, el remitente y la contraseña del correo salen de la configuración del entorno, no del código. En el primer ingreso hay que completar nombres, apellidos, contacto, extensión, cargo y área.
 
 ## Herramientas
 
@@ -113,7 +113,7 @@ Dos listas distintas. El formato del medicamento se cierra al primer guardado. E
 | API | `AgendaController` |
 | Datos | `datos-locales/agenda.json` |
 
-Citas por médico, monitorías y festivos. La agenda general se consulta sin modificar. Quien tiene el permiso puede compartir el enlace; esa consulta pública muestra el título de la cita (estudio y paciente) y no el teléfono ni las observaciones.
+Citas por médico, monitorías y festivos. Coordinación, médicos y UDD usan su agenda. Apoyo y farmacia consultan la agenda general, dentro de la sesión, sin modificar registros.
 
 ### Retención documental
 
@@ -152,7 +152,7 @@ Inventario con semáforo de mantenimiento, calibración y verificación. El corr
 | PDF | `GeneradorPdfEstudio` |
 | Correo | `ServicioFlujoEstudios`, `EnviadorCorreoSmtp` |
 
-El externo llena la fase 1 con un enlace de token. El comité corrige o da el aval. Luego el externo cierra la fase 2. Estados: recepción incompleta, aprobado por el comité, fase 2 en revisión, aprobado por el CEI.
+El externo llena la fase 1 con un enlace de token. Los formatos son carta de solicitud, carta de intención, acuerdo de confidencialidad, formulario de registro y resumen analítico. El botón de PDF espera 5 segundos entre clics. El comité corrige o da el aval. Luego el externo cierra la fase 2. Estados: recepción incompleta, aprobado por el comité, fase 2 en revisión, aprobado por el CEI.
 
 ### Formulario de protocolos
 

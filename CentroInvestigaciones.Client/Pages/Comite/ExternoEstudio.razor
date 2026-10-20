@@ -2,13 +2,18 @@
 @page "/comite/estudios/externo/{Token}"
 @layout LayoutExterno
 @inject ClienteEstudios Cliente
+@inject ClienteSesion Sesion
 @inject NavigationManager Navegacion
 
 <PageTitle>Registro de estudios · Centro de Investigaciones</PageTitle>
 
-@if (_cargando)
+@if (!_captchaRevisado || (_captchaListo && _cargando))
 {
     <p class="cargando">Cargando el registro…</p>
+}
+else if (!_captchaListo)
+{
+    <CaptchaAcceso AlListo="SeguirTrasCaptcha" />
 }
 else if (_modo == "noencontrado")
 {
@@ -233,12 +238,10 @@ else
                             FirmaIntencion="_form.FirmaCartaIntencion"
                             FirmaAcuerdo="_form.FirmaAcuerdo"
                             FirmaRegistro="_form.FirmaRegistro"
-                            FirmaHoja="_form.FirmaHojaVida"
                             AlFirmaCarta="v => { _form.FirmaCartaSolicitud = v; }"
                             AlFirmaIntencion="v => { _form.FirmaCartaIntencion = v; }"
                             AlFirmaAcuerdo="v => { _form.FirmaAcuerdo = v; }"
-                            AlFirmaRegistro="v => { _form.FirmaRegistro = v; }"
-                            AlFirmaHoja="v => { _form.FirmaHojaVida = v; }" />
+                            AlFirmaRegistro="v => { _form.FirmaRegistro = v; }" />
     }
 
     <section class="hoja">
@@ -289,6 +292,8 @@ else
     private string _tituloListo = "Registro recibido";
     private string _textoListo = "El comité ya puede revisar este estudio.";
     private bool _cargando = true;
+    private bool _captchaRevisado;
+    private bool _captchaListo;
     private bool _ocupado;
     private int _claveAdjuntos;
     private string? _tokenCreado;
@@ -300,6 +305,26 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!_captchaRevisado)
+        {
+            try
+            {
+                _captchaListo = await Sesion.CaptchaListoAsync();
+            }
+            catch (HttpRequestException)
+            {
+                _captchaListo = false;
+            }
+
+            _captchaRevisado = true;
+        }
+
+        if (!_captchaListo)
+        {
+            _cargando = false;
+            return;
+        }
+
         PrepararListas();
         if (string.IsNullOrWhiteSpace(Token))
         {
@@ -352,6 +377,12 @@ else
         {
             _cargando = false;
         }
+    }
+
+    private Task SeguirTrasCaptcha()
+    {
+        _captchaListo = true;
+        return OnParametersSetAsync();
     }
 
     private void Elegir(string tipo)

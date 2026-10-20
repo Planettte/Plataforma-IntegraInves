@@ -382,12 +382,13 @@ else
 
     private async Task DescargarAsync()
     {
-        if (_hoja is null)
+        if (_hoja is null || _descargando)
         {
             return;
         }
 
         _descargando = true;
+        var inicio = DateTime.UtcNow;
         try
         {
             var ids = _hoja.Soportes.Where(item => _soportesPdf.Contains(item.Id)).Select(item => item.Id).ToList();
@@ -408,6 +409,7 @@ else
         }
         finally
         {
+            await PausaDescarga.CompletarAsync(inicio);
             _descargando = false;
         }
     }

@@ -21,6 +21,11 @@ public sealed class AvisosProtocolo
 
     public Task<bool> CorreccionAsync(Protocolo protocolo, string origen, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(origen))
+        {
+            return Task.FromResult(false);
+        }
+
         var cuerpo = $"<p style=\"margin:0;\">El protocolo <strong>{Html(protocolo.Nombre)}</strong> requiere correcciones. Los comentarios están en el formulario.</p>";
         return _correo.EnviarAsync(
             protocolo.Correo,
@@ -43,7 +48,7 @@ public sealed class AvisosProtocolo
 
     private Task<bool> AlRevisorAsync(string destino, string saludo, string titulo, string cuerpo, string origen, Guid id, string textoEnlace, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(destino))
+        if (string.IsNullOrWhiteSpace(destino) || string.IsNullOrWhiteSpace(origen))
         {
             return Task.FromResult(false);
         }

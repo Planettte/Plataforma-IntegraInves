@@ -1,0 +1,65 @@
+@inject ClienteSesion Sesion
+
+<section class="hoja captcha-ingreso">
+    <h2>Antes de continuar</h2>
+    <p>Escribe el código para abrir el formulario.</p>
+    <img src="@_src" alt="Código de verificación" />
+    <button type="button" class="boton boton-secundario" @onclick="NuevoCodigo">Otro código</button>
+    <div class="captcha-fila">
+        <input class="entrada" maxlength="6" autocomplete="off" placeholder="Código" @bind="_respuesta" @bind:event="oninput" />
+        <button type="button" class="boton boton-primario" disabled="@_confirmando" @onclick="Confirmar">Continuar</button>
+    </div>
+    @if (_error)
+    {
+        <Alerta Tipo="peligro" Mensaje="El código no coincide. Inténtalo de nuevo." />
+    }
+</section>
+
+@code {
+    [Parameter] public EventCallback AlListo { get; set; }
+
+    private bool _confirmando;
+    private bool _error;
+    private string _respuesta = "";
+    private string _src = "api/captcha";
+
+    protected override void OnInitialized() => NuevoCodigo();
+
+    private void NuevoCodigo()
+    {
+        _respuesta = "";
+        _src = $"api/captcha?t={DateTime.UtcNow.Ticks}";
+    }
+
+    private async Task Confirmar()
+    {
+        if (_confirmando || string.IsNullOrWhiteSpace(_respuesta))
+        {
+            _error = true;
+            return;
+        }
+
+        _confirmando = true;
+        _error = false;
+        try
+        {
+            var listo = await Sesion.ConfirmarCaptchaAsync(_respuesta);
+            if (listo)
+            {
+                await AlListo.InvokeAsync();
+                return;
+            }
+
+            _error = true;
+            NuevoCodigo();
+        }
+        catch (HttpRequestException)
+        {
+            _error = true;
+        }
+        finally
+        {
+            _confirmando = false;
+        }
+    }
+}

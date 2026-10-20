@@ -3,11 +3,13 @@ using CentroInvestigaciones.API.Autorizacion;
 using CentroInvestigaciones.Application.Nucleo;
 using CentroInvestigaciones.Domain;
 using CentroInvestigaciones.Shared;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CentroInvestigaciones.API.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/usuarios")]
 public sealed class UsuariosController : ControllerBase
 {

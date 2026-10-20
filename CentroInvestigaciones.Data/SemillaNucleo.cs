@@ -9,16 +9,21 @@ public static class SemillaNucleo
     {
         var areas = new (string Codigo, string Nombre)[]
         {
-            ("estudios", "Estudios clínicos"),
+            ("estudios", "Estudios Clínicos"),
             ("udd", "Diseño y desarrollo"),
-            ("comite", "Investigaciones")
+            ("comite", "Comité de investigaciones")
         };
 
         foreach (var (codigo, nombre) in areas)
         {
-            if (!await db.Areas.AnyAsync(area => area.Codigo == codigo, ct))
+            var existente = await db.Areas.FirstOrDefaultAsync(area => area.Codigo == codigo, ct);
+            if (existente is null)
             {
                 db.Areas.Add(new Area { Id = Guid.NewGuid(), Codigo = codigo, Nombre = nombre });
+            }
+            else if (!string.Equals(existente.Nombre, nombre, StringComparison.Ordinal))
+            {
+                existente.Nombre = nombre;
             }
         }
 

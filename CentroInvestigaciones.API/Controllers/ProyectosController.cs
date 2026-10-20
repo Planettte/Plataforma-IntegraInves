@@ -102,7 +102,7 @@ public sealed class ProyectosController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(ProyectosController));
         }
     }
 
@@ -123,7 +123,7 @@ public sealed class ProyectosController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return excepcion.Message.Contains("encontró", StringComparison.Ordinal) ? NotFound() : BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(ProyectosController));
         }
     }
 
@@ -142,7 +142,7 @@ public sealed class ProyectosController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return excepcion.Message.Contains("encontró", StringComparison.Ordinal) ? NotFound() : BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(ProyectosController));
         }
     }
 
@@ -164,7 +164,7 @@ public sealed class ProyectosController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return excepcion.Message.Contains("encontró", StringComparison.Ordinal) ? NotFound() : BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(ProyectosController));
         }
     }
 
@@ -178,7 +178,7 @@ public sealed class ProyectosController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return excepcion.Message.Contains("encontró", StringComparison.Ordinal) ? NotFound() : BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(ProyectosController));
         }
     }
 
@@ -192,7 +192,7 @@ public sealed class ProyectosController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(ProyectosController));
         }
     }
 
@@ -206,7 +206,7 @@ public sealed class ProyectosController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return excepcion.Message.Contains("encontró", StringComparison.Ordinal) ? NotFound() : BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(ProyectosController));
         }
     }
 
@@ -220,7 +220,7 @@ public sealed class ProyectosController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return excepcion.Message.Contains("encontró", StringComparison.Ordinal) ? NotFound() : BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(ProyectosController));
         }
     }
 
@@ -234,7 +234,7 @@ public sealed class ProyectosController : ControllerBase
         }
         catch (InvalidOperationException excepcion)
         {
-            return excepcion.Message.Contains("encontró", StringComparison.Ordinal) ? NotFound() : BadRequest(excepcion.Message);
+            return RespuestaOperacion.De(HttpContext, excepcion, nameof(ProyectosController));
         }
     }
 

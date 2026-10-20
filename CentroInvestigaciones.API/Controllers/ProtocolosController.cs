@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using CentroInvestigaciones.API.Autorizacion;
 using CentroInvestigaciones.API.Infraestructura;
 using CentroInvestigaciones.Application.Nucleo;
@@ -18,13 +19,15 @@ public sealed class ProtocolosController : ControllerBase
     private readonly IAlmacenNucleo _nucleo;
     private readonly AvisosProtocolo _avisos;
     private readonly GeneradorPdfProtocolos _pdf;
+    private readonly OrigenPublico _origen;
 
-    public ProtocolosController(IAlmacenProtocolos almacen, IAlmacenNucleo nucleo, AvisosProtocolo avisos, GeneradorPdfProtocolos pdf)
+    public ProtocolosController(IAlmacenProtocolos almacen, IAlmacenNucleo nucleo, AvisosProtocolo avisos, GeneradorPdfProtocolos pdf, OrigenPublico origen)
     {
         _almacen = almacen;
         _nucleo = nucleo;
         _avisos = avisos;
         _pdf = pdf;
+        _origen = origen;
     }
 
     [HttpGet]
@@ -45,6 +48,10 @@ public sealed class ProtocolosController : ControllerBase
         }).ToList();
     }
 
+    [HttpGet("revisores")]
+    public async Task<List<RevisorProtocoloDto>> Revisores(CancellationToken ct) =>
+        await RevisoresProtocolo.ListarAsync(_nucleo, ct);
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ProtocoloDto>> Obtener(Guid id, CancellationToken ct)
     {
@@ -61,6 +68,17 @@ public sealed class ProtocolosController : ControllerBase
     [HttpPut("{id:guid}/correccion")]
     public async Task<ActionResult<ResultadoProtocoloDto>> Corregir(Guid id, [FromBody] CorreccionProtocoloDto solicitud, CancellationToken ct)
     {
+        var actual = _almacen.Buscar(id);
+        if (actual is null)
+        {
+            return NotFound();
+        }
+
+        if (await ActorIdAsync(ct) != actual.RevisorId)
+        {
+            return Forbid();
+        }
+
         try
         {
             var protocolo = _almacen.Corregir(id, solicitud.Comentarios);
@@ -77,6 +95,17 @@ public sealed class ProtocolosController : ControllerBase
     [HttpPost("{id:guid}/aceptar")]
     public async Task<ActionResult<ResultadoProtocoloDto>> Aceptar(Guid id, CancellationToken ct)
     {
+        var actual = _almacen.Buscar(id);
+        if (actual is null)
+        {
+            return NotFound();
+        }
+
+        if (await ActorIdAsync(ct) != actual.RevisorId)
+        {
+            return Forbid();
+        }
+
         try
         {
             var protocolo = _almacen.Aceptar(id);
@@ -117,10 +146,20 @@ public sealed class ProtocolosController : ControllerBase
         Aviso = enviado ? null : avisoFallo
     };
 
-    private ActionResult Fallo(InvalidOperationException excepcion) =>
-        excepcion.Message.Contains("encontró", StringComparison.Ordinal)
-            ? NotFound(excepcion.Message)
-            : BadRequest(excepcion.Message);
+    private async Task<Guid?> ActorIdAsync(CancellationToken ct)
+    {
+        var identificador = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(identificador))
+        {
+            return null;
+        }
 
-    private string Origen() => $"{Request.Scheme}://{Request.Host}";
+        var usuario = await _nucleo.BuscarPorProveedorAsync(identificador, ct);
+        return usuario?.Id;
+    }
+
+    private ActionResult Fallo(InvalidOperationException excepcion) =>
+        RespuestaOperacion.De(HttpContext, excepcion, nameof(ProtocolosController));
+
+    private string Origen() => _origen.Valor;
 }

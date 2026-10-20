@@ -16,26 +16,26 @@ public static class CatalogoNavegacion
 
     public static IReadOnlyList<ElementoNavegacion> Herramientas { get; } =
     [
-        new("Hojas de Vida", "/estudios-clinicos/hojas-de-vida", Icono: "documento", CodigoPermiso: "herramientas.estudios.hojas-de-vida", Etiqueta: "Estudios clínicos"),
-        new("Plantillas de estudios", "/estudios-clinicos/plantillas", Icono: "formulario", CodigoPermiso: "herramientas.estudios.plantillas", Etiqueta: "Estudios clínicos"),
-        new("Inventario Farmacia", "/estudios-clinicos/inventario-farmacia", Icono: "frasco", CodigoPermiso: "herramientas.estudios.inventario-farmacia", Etiqueta: "Estudios clínicos"),
-        new("Agenda Investigaciones", "/estudios-clinicos/agenda", Subtitulo: "Coordinación y Médicos", Icono: "agenda", CodigoPermiso: "herramientas.estudios.agenda", Etiqueta: "Estudios clínicos"),
-        new("Retención Documental", "/estudios-clinicos/retencion-documental", Icono: "archivo", CodigoPermiso: "herramientas.estudios.retencion-documental", Etiqueta: "Estudios clínicos"),
-        new("Dispositivos Médicos", "/estudios-clinicos/inventario-dispositivos", Icono: "dispositivo", CodigoPermiso: "herramientas.estudios.dispositivos", Etiqueta: "Estudios clínicos"),
+        new("Hojas de Vida", "/estudios-clinicos/hojas-de-vida", Icono: "documento", CodigoPermiso: "herramientas.estudios.hojas-de-vida", Etiqueta: "Estudios Clínicos"),
+        new("Plantillas de estudios", "/estudios-clinicos/plantillas", Icono: "formulario", CodigoPermiso: "herramientas.estudios.plantillas", Etiqueta: "Estudios Clínicos"),
+        new("Inventario Farmacia", "/estudios-clinicos/inventario-farmacia", Icono: "frasco", CodigoPermiso: "herramientas.estudios.inventario-farmacia", Etiqueta: "Estudios Clínicos"),
+        new("Agenda Investigaciones", "/estudios-clinicos/agenda", Subtitulo: "Coordinación y Médicos", Icono: "agenda", CodigoPermiso: "herramientas.estudios.agenda", Etiqueta: "Estudios Clínicos"),
+        new("Retención Documental", "/estudios-clinicos/retencion-documental", Icono: "archivo", CodigoPermiso: "herramientas.estudios.retencion-documental", Etiqueta: "Estudios Clínicos"),
+        new("Dispositivos Médicos", "/estudios-clinicos/inventario-dispositivos", Icono: "dispositivo", CodigoPermiso: "herramientas.estudios.dispositivos", Etiqueta: "Estudios Clínicos"),
         new("Agenda UDD", "/udd/agenda", Icono: "agenda", CodigoPermiso: "herramientas.udd.agenda", Etiqueta: "Diseño y desarrollo"),
         new("Formulario Protocolos", "/udd/protocolos", Icono: "formulario", CodigoPermiso: "herramientas.udd.protocolos", Etiqueta: "Diseño y desarrollo"),
         new("Seguimiento de Proyectos", "/udd/proyectos", Icono: "proyecto", CodigoPermiso: "herramientas.udd.proyectos", Etiqueta: "Diseño y desarrollo"),
-        new("Estudios Académicos/Clínicos", "/comite/estudios", Icono: "estudio", CodigoPermiso: "herramientas.comite.estudios", Etiqueta: "Investigaciones")
+        new("Estudios Académicos/Clínicos", "/comite/estudios", Icono: "estudio", CodigoPermiso: "herramientas.comite.estudios", Etiqueta: "Comité de investigaciones")
     ];
 
     public static IReadOnlyList<ElementoNavegacion> Principal { get; } =
     [
         new("Inicio", "/"),
         new(
-            "Estudios clínicos",
+            "Estudios Clínicos",
             "/estudios-clinicos",
             "Herramientas del área clínica.",
-            Herramientas.Where(item => item.Etiqueta == "Estudios clínicos").ToList(),
+            Herramientas.Where(item => item.Etiqueta == "Estudios Clínicos").ToList(),
             Etiqueta: "Área"),
         new(
             "Diseño y desarrollo",
@@ -44,10 +44,10 @@ public static class CatalogoNavegacion
             Herramientas.Where(item => item.Etiqueta == "Diseño y desarrollo").ToList(),
             Etiqueta: "Unidad"),
         new(
-            "Investigaciones",
+            "Comité de investigaciones",
             "/comite",
-            "Comité de Investigaciones.",
-            Herramientas.Where(item => item.Etiqueta == "Investigaciones").ToList(),
+            "Comité de investigaciones.",
+            Herramientas.Where(item => item.Etiqueta == "Comité de investigaciones").ToList(),
             Etiqueta: "Comité")
     ];
 

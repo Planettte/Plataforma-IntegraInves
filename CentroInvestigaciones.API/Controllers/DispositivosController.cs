@@ -19,19 +19,16 @@ public sealed class DispositivosController : ControllerBase
 {
     private readonly IAlmacenDispositivos _almacen;
     private readonly IAlmacenNucleo _nucleo;
-    private readonly AvisadorDispositivos _avisador;
 
-    public DispositivosController(IAlmacenDispositivos almacen, IAlmacenNucleo nucleo, AvisadorDispositivos avisador)
+    public DispositivosController(IAlmacenDispositivos almacen, IAlmacenNucleo nucleo)
     {
         _almacen = almacen;
         _nucleo = nucleo;
-        _avisador = avisador;
     }
 
     [HttpGet]
     public ActionResult<IReadOnlyList<DispositivoDto>> Listar()
     {
-        _avisador.RecordarOrigen($"{Request.Scheme}://{Request.Host}");
         var hoy = SemaforoDispositivos.Hoy();
         return _almacen.Listar().Select(item => Mapa(item, hoy)).ToList();
     }
@@ -74,7 +71,6 @@ public sealed class DispositivosController : ControllerBase
         }
 
         var creado = _almacen.Crear(Desde(solicitud));
-        _avisador.RecordarOrigen($"{Request.Scheme}://{Request.Host}");
         return CreatedAtAction(nameof(Listar), Mapa(creado, SemaforoDispositivos.Hoy()));
     }
 
@@ -92,7 +88,6 @@ public sealed class DispositivosController : ControllerBase
             return NotFound();
         }
 
-        _avisador.RecordarOrigen($"{Request.Scheme}://{Request.Host}");
         return Mapa(actualizado, SemaforoDispositivos.Hoy());
     }
 

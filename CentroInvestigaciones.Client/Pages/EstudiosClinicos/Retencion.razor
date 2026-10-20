@@ -171,8 +171,14 @@
 
     private async Task GenerarAsync()
     {
+        if (_generando)
+        {
+            return;
+        }
+
         _generando = true;
         _error = null;
+        var inicio = DateTime.UtcNow;
         try
         {
             var (bytes, nombre) = await Cliente.PdfAsync(_datos);
@@ -185,6 +191,7 @@
         }
         finally
         {
+            await PausaDescarga.CompletarAsync(inicio);
             _generando = false;
         }
     }

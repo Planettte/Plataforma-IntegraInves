@@ -12,7 +12,7 @@
         </div>
     </header>
     <AvisoCompletado />
-    <main class="externo-cuerpo @(EsProtocolos ? "externo-ancho" : null)">
+    <main class="externo-cuerpo @(Ancho ? "externo-ancho" : null)">
         @Body
     </main>
 </div>
@@ -21,6 +21,9 @@
     [Parameter] public string? Titulo { get; set; }
 
     [Parameter] public string? Subtitulo { get; set; }
+
+    private bool Ancho =>
+        EsProtocolos || Ruta.StartsWith("comite/estudios/externo", StringComparison.OrdinalIgnoreCase);
 
     private bool EsProtocolos =>
         Ruta.StartsWith("udd/protocolos/externo", StringComparison.OrdinalIgnoreCase);

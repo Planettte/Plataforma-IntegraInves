@@ -288,8 +288,14 @@ else
 
     private async Task DescargarAsync()
     {
+        if (_descargando)
+        {
+            return;
+        }
+
         _descargando = true;
         _error = null;
+        var inicio = DateTime.UtcNow;
         try
         {
             var (bytes, nombre) = await Cliente.PdfAsync(_formato.Id);
@@ -302,6 +308,7 @@ else
         }
         finally
         {
+            await PausaDescarga.CompletarAsync(inicio);
             _descargando = false;
         }
     }

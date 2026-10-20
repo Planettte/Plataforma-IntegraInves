@@ -26,6 +26,21 @@ public sealed class ClienteSesion
             ?? new SesionActualDto();
     }
 
+    public async Task<bool> CaptchaListoAsync()
+    {
+        var estado = await _http.GetFromJsonAsync<EstadoCaptchaDto>("api/captcha/estado");
+        return estado?.Listo == true;
+    }
+
+    public async Task<bool> ConfirmarCaptchaAsync(string respuesta)
+    {
+        using var solicitud = new HttpRequestMessage(HttpMethod.Post, "api/captcha");
+        solicitud.Headers.Add(EncabezadoSolicitud, "1");
+        solicitud.Content = JsonContent.Create(new RespuestaCaptchaDto { Respuesta = respuesta });
+        using var resultado = await _http.SendAsync(solicitud);
+        return resultado.IsSuccessStatusCode;
+    }
+
     public async Task CerrarAsync()
     {
         using var solicitud = new HttpRequestMessage(HttpMethod.Post, "api/sesion/cerrar");

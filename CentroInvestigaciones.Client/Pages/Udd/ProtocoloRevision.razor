@@ -129,13 +129,14 @@ else
 
     private async Task PdfAsync()
     {
-        if (_modelo is null)
+        if (_modelo is null || _generando)
         {
             return;
         }
 
         _generando = true;
         _error = null;
+        var inicio = DateTime.UtcNow;
         try
         {
             var (bytes, nombre) = await Cliente.PdfAsync(Id);
@@ -148,6 +149,7 @@ else
         }
         finally
         {
+            await PausaDescarga.CompletarAsync(inicio);
             _generando = false;
         }
     }

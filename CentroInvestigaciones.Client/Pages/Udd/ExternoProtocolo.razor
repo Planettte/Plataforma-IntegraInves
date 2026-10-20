@@ -2,14 +2,19 @@
 @page "/udd/protocolos/externo/{Token}"
 @layout LayoutExterno
 @inject ClienteProtocolos Cliente
+@inject ClienteSesion Sesion
 @inject NavigationManager Navegacion
 @inject Avisos Avisos
 
 <PageTitle>Formulario de protocolos · Centro de Investigaciones</PageTitle>
 
-@if (_cargando)
+@if (!_captchaRevisado || (_captchaListo && _cargando))
 {
     <p class="cargando">Cargando el formulario…</p>
+}
+else if (!_captchaListo)
+{
+    <CaptchaAcceso AlListo="SeguirTrasCaptcha" />
 }
 else if (_modo == "noencontrado")
 {
@@ -50,6 +55,8 @@ else
     private List<RevisorProtocoloDto> _revisores = [];
     private string _modo = "formulario";
     private bool _cargando = true;
+    private bool _captchaRevisado;
+    private bool _captchaListo;
     private bool _ocupado;
     private string? _error;
     private string? _aviso;
@@ -60,11 +67,31 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!_captchaRevisado)
+        {
+            try
+            {
+                _captchaListo = await Sesion.CaptchaListoAsync();
+            }
+            catch (HttpRequestException)
+            {
+                _captchaListo = false;
+            }
+
+            _captchaRevisado = true;
+        }
+
+        if (!_captchaListo)
+        {
+            _cargando = false;
+            return;
+        }
+
         _cargando = true;
         _error = null;
         try
         {
-            _revisores = (await Cliente.RevisoresAsync()).ToList();
+            _revisores = (await Cliente.RevisoresPublicosAsync()).ToList();
             if (string.IsNullOrEmpty(Token))
             {
                 _modelo = new ProtocoloDto();
@@ -91,6 +118,12 @@ else
         {
             _cargando = false;
         }
+    }
+
+    private Task SeguirTrasCaptcha()
+    {
+        _captchaListo = true;
+        return OnParametersSetAsync();
     }
 
     private async Task EnviarAsync()

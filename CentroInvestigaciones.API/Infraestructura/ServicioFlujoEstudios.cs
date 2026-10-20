@@ -221,6 +221,11 @@ public sealed class ServicioFlujoEstudios
 
     private Task<bool> EnviarCorreccionAsync(Estudio estudio, string mensaje, string origen, bool fase2, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(origen))
+        {
+            return Task.FromResult(false);
+        }
+
         var titulo = System.Net.WebUtility.HtmlEncode(estudio.Titulo);
         var detalle = System.Net.WebUtility.HtmlEncode(mensaje).Replace("\n", "<br>");
         var cuerpo = $"<p style=\"margin:0;\">Se ha revisado el registro del estudio <strong>{titulo}</strong> y se requieren las siguientes correcciones:</p>"
@@ -240,6 +245,11 @@ public sealed class ServicioFlujoEstudios
 
     private Task<bool> EnviarAvalAsync(Estudio estudio, string origen, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(origen))
+        {
+            return Task.FromResult(false);
+        }
+
         var extra = string.IsNullOrWhiteSpace(estudio.MensajeAval)
             ? ""
             : PlantillaCorreo.Recuadro(System.Net.WebUtility.HtmlEncode(estudio.MensajeAval).Replace("\n", "<br>"));
@@ -289,6 +299,11 @@ public sealed class ServicioFlujoEstudios
                 continue;
             }
 
+            if (string.IsNullOrWhiteSpace(origen))
+            {
+                continue;
+            }
+
             var cuerpo = $"<p style=\"margin:0;\">{System.Net.WebUtility.HtmlEncode(mensaje)}</p>";
             await _correo.EnviarAsync(
                 usuario.CorreoElectronico,
@@ -298,7 +313,7 @@ public sealed class ServicioFlujoEstudios
                 ct);
         }
 
-        if (!hubo && !string.IsNullOrWhiteSpace(_correo.DestinoComite))
+        if (!hubo && !string.IsNullOrWhiteSpace(_correo.DestinoComite) && !string.IsNullOrWhiteSpace(origen))
         {
             var cuerpo = $"<p style=\"margin:0;\">{System.Net.WebUtility.HtmlEncode(mensaje)}</p>";
             await _correo.EnviarAsync(

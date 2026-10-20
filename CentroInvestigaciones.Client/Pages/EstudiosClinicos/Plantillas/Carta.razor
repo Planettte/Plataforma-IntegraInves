@@ -272,13 +272,14 @@ else
 
     private async Task DescargarAsync()
     {
-        if (_vista is null)
+        if (_vista is null || _ocupado)
         {
             return;
         }
 
         _ocupado = true;
         _error = null;
+        var inicio = DateTime.UtcNow;
         try
         {
             var (pdf, error) = await Cliente.PdfAsync(Id, Codigo, Solicitud());
@@ -298,6 +299,7 @@ else
         }
         finally
         {
+            await PausaDescarga.CompletarAsync(inicio);
             _ocupado = false;
         }
     }

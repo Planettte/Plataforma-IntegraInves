@@ -241,7 +241,7 @@ else
         </div>
     </div>
     <h3>Herramientas</h3>
-    <p class="ayuda-campo">La agenda no se marca aquí: quien esté en Estudios clínicos o en UDD la tiene. Médicos y coordinación usan su agenda; apoyo y farmacia solo consultan la agenda general.</p>
+    <p class="ayuda-campo">La agenda no se marca aquí: quien esté en Estudios Clínicos o en UDD la tiene. Médicos y coordinación usan su agenda; apoyo y farmacia solo consultan la agenda general.</p>
     @foreach (var grupo in CatalogoNavegacion.Herramientas.GroupBy(item => item.Etiqueta))
     {
         <div class="bloque-area-permisos">
@@ -273,7 +273,7 @@ else
         {
             <Alerta Tipo="peligro" Mensaje="@_error" />
         }
-        <p class="ayuda-campo">El área y el cargo los define un jefe o un administrador. En Estudios clínicos el cargo elige la agenda; en UDD e Investigaciones queda fijo.</p>
+        <p class="ayuda-campo">El área y el cargo los define un jefe o un administrador. En Estudios Clínicos el cargo elige la agenda; en UDD y en Comité de investigaciones queda fijo.</p>
         <div class="campo">
             <label for="aprobar-area">Área</label>
             <select id="aprobar-area" class="seleccion" value="@_areaSeleccionada" @onchange="AlCambiarArea">

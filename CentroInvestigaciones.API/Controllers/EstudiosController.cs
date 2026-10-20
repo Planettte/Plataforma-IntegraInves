@@ -14,14 +14,15 @@ namespace CentroInvestigaciones.API.Controllers;
 [Route("api/estudios")]
 public sealed class EstudiosController : ControllerBase
 {
-    private const long TamanoMaximo = 20 * 1024 * 1024;
     private readonly IAlmacenEstudios _almacen;
     private readonly ServicioFlujoEstudios _flujo;
+    private readonly OrigenPublico _origen;
 
-    public EstudiosController(IAlmacenEstudios almacen, ServicioFlujoEstudios flujo)
+    public EstudiosController(IAlmacenEstudios almacen, ServicioFlujoEstudios flujo, OrigenPublico origen)
     {
         _almacen = almacen;
         _flujo = flujo;
+        _origen = origen;
     }
 
     [HttpGet]
@@ -78,18 +79,23 @@ public sealed class EstudiosController : ControllerBase
     }
 
     [HttpPost("{id:guid}/aval-archivo")]
-    [RequestSizeLimit(TamanoMaximo)]
+    [RequestSizeLimit(ArchivoRecibido.TamanoMaximo)]
     public async Task<IActionResult> AvalArchivo(Guid id, IFormFile archivo)
     {
         var estudio = _almacen.Buscar(id);
-        if (estudio is null || estudio.Estado == EstadosEstudio.AprobadoCei || archivo.Length == 0 || archivo.Length > TamanoMaximo)
+        if (estudio is null || estudio.Estado == EstadosEstudio.AprobadoCei || archivo is null)
         {
             return BadRequest();
         }
 
+        await using var contenido = await ArchivoRecibido.LeerAsync(archivo, HttpContext.RequestAborted);
+        if (contenido is null)
+        {
+            return BadRequest("El archivo no es válido.");
+        }
+
         _almacen.QuitarPorClave(id, ClavesArchivoEstudio.AvalComite);
-        await using var lectura = archivo.OpenReadStream();
-        var guardado = _almacen.AgregarArchivo(id, ClavesArchivoEstudio.AvalComite, archivo.FileName, archivo.ContentType, lectura);
+        var guardado = _almacen.AgregarArchivo(id, ClavesArchivoEstudio.AvalComite, archivo.FileName, archivo.ContentType, contenido);
         return guardado is null ? BadRequest() : NoContent();
     }
 
@@ -97,7 +103,7 @@ public sealed class EstudiosController : ControllerBase
     public IActionResult Descargar(Guid id, Guid archivoId)
     {
         var estudio = _almacen.Buscar(id);
-        var archivo = estudio?.Archivos.FirstOrDefault(item => item.Id == archivoId);
+        var archivo = estudio?.Archivos.FirstOrDefault(item => item.Id == archivoId && !ClavesArchivoEstudio.EsFirma(item.Clave));
         var stream = archivo is null ? null : _almacen.Abrir(id, archivoId);
         return stream is null || archivo is null
             ? NotFound()
@@ -113,5 +119,5 @@ public sealed class EstudiosController : ControllerBase
             : "Error al notificar al usuario."
     };
 
-    private string Origen() => $"{Request.Scheme}://{Request.Host}";
+    private string Origen() => _origen.Valor;
 }

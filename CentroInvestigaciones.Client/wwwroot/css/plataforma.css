@@ -778,6 +778,11 @@ h2 { font-size: 1.15rem; color: var(--texto); margin-bottom: 0.75rem; }
 .login-tarjeta {
     width: 100%;
 }
+.captcha-ingreso { display: flex; flex-direction: column; align-items: stretch; gap: 0.55rem; margin-top: 0.4rem; text-align: left; }
+.captcha-ingreso p { margin: 0; color: var(--texto-suave); }
+.captcha-ingreso img { align-self: center; width: 220px; height: 64px; border: 1px solid #c5d7ee; border-radius: 8px; background: #f4f8fc; }
+.captcha-fila { display: flex; gap: 0.45rem; }
+.captcha-fila .entrada { flex: 1; margin: 0; }
 .ingreso-formulario { width: 100%; text-align: left; }
 .login-pagina .ingreso-formulario h1 { text-align: center; }
 
@@ -1598,8 +1603,8 @@ button.agenda-registro { cursor: pointer; }
 .encabezado-foscal { display: flex; align-items: center; justify-content: center; gap: 0.8rem; margin-bottom: 1rem; }
 .encabezado-foscal h3, .titulo-protocolo { margin: 0; }
 .tabla-protocolo td.celda-fecha { text-align: center; }
-.tabla-cronograma { min-width: 980px; }
-.tabla-presupuesto { min-width: 1100px; }
+.formato-papel table.tabla-cronograma,
+.formato-papel table.tabla-presupuesto { width: 100%; min-width: 0; max-width: 100%; }
 .meses-protocolo { display: grid; grid-template-columns: repeat(12, minmax(1.4rem, 1fr)); gap: 0.2rem; }
 .meses-protocolo label { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; font-size: 0.72rem; }
 .grupo-etica { margin: 0.6rem 0 0.9rem; }

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Claims;
 using CentroInvestigaciones.API.Autenticacion;
 using CentroInvestigaciones.API.Autorizacion;
@@ -6,22 +7,72 @@ using CentroInvestigaciones.Application.Nucleo;
 using CentroInvestigaciones.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var origenTexto = builder.Configuration["Plataforma:OrigenPublico"];
+var hostPermitido = "localhost";
+if (Uri.TryCreate(origenTexto, UriKind.Absolute, out var uriOrigen) && uriOrigen.Scheme == Uri.UriSchemeHttps)
+{
+    hostPermitido = uriOrigen.IdnHost;
+}
+
+builder.Services.Configure<Microsoft.AspNetCore.HostFiltering.HostFilteringOptions>(opciones =>
+{
+    opciones.AllowedHosts = [hostPermitido];
+});
+
+var proxiesConocidos = new List<IPAddress>();
+foreach (var proxy in (builder.Configuration["Plataforma:ProxiesConocidos"] ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+{
+    if (IPAddress.TryParse(proxy, out var ip))
+    {
+        proxiesConocidos.Add(ip);
+    }
+}
+
+if (proxiesConocidos.Count > 0)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(opciones =>
+    {
+        opciones.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        opciones.KnownProxies.Clear();
+        opciones.KnownIPNetworks.Clear();
+        foreach (var ip in proxiesConocidos)
+        {
+            opciones.KnownProxies.Add(ip);
+        }
+    });
+}
+
+builder.Services.AddSingleton<RetoCaptcha>();
+builder.Services.AddSingleton<OrigenPublico>();
 builder.Services.AddScoped<FiltroPermiso>();
 builder.Services.AddControllers(opciones => opciones.Filters.AddService<FiltroPermiso>());
 builder.Services.AddOpenApi();
+builder.Services.AddRateLimiter(opciones =>
+{
+    opciones.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    opciones.AddPolicy("envios-publicos", contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocido",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+});
 
 var opcionesGoogle = builder.Configuration.GetSection(OpcionesGoogle.Seccion).Get<OpcionesGoogle>() ?? new OpcionesGoogle();
 builder.Services.AddSingleton(opcionesGoogle);
 
 var correoAdministrador = builder.Configuration["Autenticacion:AdministradorInicial"];
-if (string.IsNullOrWhiteSpace(correoAdministrador))
-{
-    correoAdministrador = DesarrolloLocal.CorreoAdministrador;
-}
 
 var conexion = builder.Configuration.GetConnectionString("Centro");
 var sqlDisponible = !string.IsNullOrWhiteSpace(conexion) && await SondaSql.RespondeAsync(conexion);
@@ -31,9 +82,13 @@ if (sqlDisponible)
     builder.Services.AgregarDatos(conexion!);
     builder.Services.AddScoped<IAlmacenNucleo, AlmacenNucleo>();
 }
-else
+else if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddSingleton<IAlmacenNucleo, AlmacenArchivoLocal>();
+}
+else
+{
+    throw new InvalidOperationException("SQL Server no respondió. Fuera de desarrollo la plataforma no inicia.");
 }
 
 builder.Services.AddScoped(sp => new ServicioIngreso(sp.GetRequiredService<IAlmacenNucleo>(), correoAdministrador));
@@ -69,7 +124,9 @@ var autenticacion = builder.Services
     {
         opciones.Cookie.Name = "CentroInvestigaciones.Sesion";
         opciones.Cookie.HttpOnly = true;
-        opciones.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        opciones.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
         opciones.Cookie.SameSite = SameSiteMode.Lax;
         opciones.ExpireTimeSpan = TimeSpan.FromHours(8);
         opciones.SlidingExpiration = true;
@@ -154,6 +211,40 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+else
+{
+    app.UseExceptionHandler(manejo =>
+    {
+        manejo.Run(async contexto =>
+        {
+            var error = contexto.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+            if (error is not null)
+            {
+                contexto.RequestServices.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Errores")
+                    .LogError(error, "Error no controlado.");
+            }
+
+            contexto.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            contexto.Response.ContentType = "text/plain; charset=utf-8";
+            await contexto.Response.WriteAsync("No se pudo completar la solicitud.");
+        });
+    });
+    app.UseHsts();
+}
+
+if (proxiesConocidos.Count > 0)
+{
+    app.UseForwardedHeaders();
+}
+
+app.Use(async (contexto, siguiente) =>
+{
+    contexto.Response.Headers.XContentTypeOptions = "nosniff";
+    contexto.Response.Headers.XFrameOptions = "DENY";
+    contexto.Response.Headers["Referrer-Policy"] = "no-referrer";
+    await siguiente(contexto);
+});
 
 app.UseHttpsRedirection();
 
@@ -181,7 +272,8 @@ app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
+app.UseRateLimiter();
+app.MapControllers().RequireAuthorization();
 app.Map("/api/{**ruta}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

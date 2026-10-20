@@ -61,7 +61,7 @@ public sealed class EnviadorCorreoSmtp : IEnviadorCorreo
 
     private int Puerto => int.TryParse(Texto("Puerto"), out var puerto) ? puerto : 587;
 
-    private string Usuario => Texto("Usuario") ?? DesarrolloLocal.CorreoAdministrador;
+    private string Usuario => Texto("Usuario") ?? "";
 
     private string Remitente => Texto("Remitente") ?? Usuario;
 

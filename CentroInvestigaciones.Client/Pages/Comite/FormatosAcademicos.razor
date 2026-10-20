@@ -118,53 +118,6 @@
             <p><strong>@(string.IsNullOrWhiteSpace($"{Registro.Nombres} {Registro.Apellidos}".Trim()) ? "—" : $"{Registro.Nombres} {Registro.Apellidos}".Trim())</strong></p>
         </article>
     }
-    else if (_activo == 5)
-    {
-        <Firma Etiqueta="Firma" AlCambiar="RecibirHoja" />
-        <article class="formato-papel">
-            <Cabecera Titulo="HOJA DE VIDA" />
-            <table>
-                <tr><td class="formato-seccion" colspan="2">Información personal</td></tr>
-                <tr>
-                    <td><div class="etiqueta">Nombres y apellidos (como aparecen en el documento de identidad)</div><input class="campo-en-linea ancho" placeholder="nombres y apellidos" @bind="Hoja.Nombre" @bind:event="oninput" /></td>
-                    <td><div class="etiqueta">Títulos académicos (MD, BSc, MSc…)</div><input class="campo-en-linea ancho" placeholder="MD, BSc, MSc…" @bind="Hoja.Titulos" @bind:event="oninput" /></td>
-                </tr>
-                <tr><td colspan="2"><div class="etiqueta">Dirección institucional</div><input class="campo-en-linea ancho" placeholder="institución, dirección, ciudad, país" @bind="Hoja.Direccion" @bind:event="oninput" /></td></tr>
-                <tr>
-                    <td><div class="etiqueta">Número telefónico</div><input class="campo-en-linea" placeholder="teléfono" @bind="Hoja.Telefono" @bind:event="oninput" /></td>
-                    <td><div class="etiqueta">Número de FAX</div><input class="campo-en-linea" placeholder="NA si no aplica" @bind="Hoja.Fax" @bind:event="oninput" /></td>
-                </tr>
-                <tr><td class="formato-seccion" colspan="2">Información académica</td></tr>
-                <tr><td colspan="2">
-                    <div class="etiqueta">Educación y entrenamiento — Pregrados y postgrados (comience por el título más reciente)<br />Institución (ciudad, departamento, país) — Título obtenido y año — Área de estudios</div>
-                    <textarea class="campo-bloque" placeholder="Institución (ciudad, país) — Título — Año — Área (del más reciente al más antiguo)" @bind="Hoja.Academica" @bind:event="oninput"></textarea>
-                </td></tr>
-                <tr><td class="formato-seccion" colspan="2">Experiencia laboral</td></tr>
-                <tr><td colspan="2">
-                    <div class="etiqueta">Posición (comience por la más actual) — Institución (ciudad, departamento, país) — Fechas</div>
-                    <textarea class="campo-bloque" placeholder="Posición — Institución (ciudad, país) — Fechas" @bind="Hoja.Laboral" @bind:event="oninput"></textarea>
-                </td></tr>
-                <tr><td class="formato-seccion" colspan="2">Experiencia en investigación</td></tr>
-                <tr><td colspan="2">
-                    <div class="etiqueta">Indicación del estudio — Fase clínica — Papel dentro de la investigación — Año</div>
-                    <textarea class="campo-bloque" placeholder="Indicación — Fase clínica — Rol — Año" @bind="Hoja.Investigacion" @bind:event="oninput"></textarea>
-                </td></tr>
-                <tr><td class="formato-seccion" colspan="2">Entrenamiento ICH / GCP</td></tr>
-                <tr>
-                    <td colspan="2">
-                        <div class="etiqueta">Entrenamiento en Buenas Prácticas Clínicas (adjuntar certificado si aplica)</div>
-                        <select class="campo-en-linea" @bind="Hoja.Gcp">
-                            <option value="">Seleccionar…</option>
-                            <option>Sí (adjuntar certificado)</option>
-                            <option>No</option>
-                        </select>
-                    </td>
-                </tr>
-            </table>
-            <ImagenFirma Src="@_vistaHoja" />
-            <p><strong>@(string.IsNullOrWhiteSpace(Hoja.Nombre) ? "—" : Hoja.Nombre)</strong> &nbsp;&nbsp; Fecha: @DateTime.Now.ToString("dd/MM/yyyy")</p>
-        </article>
-    }
     else
     {
         <article class="formato-papel">
@@ -312,8 +265,7 @@
         (2, "2. Carta de intención"),
         (3, "3. Acuerdo de confidencialidad"),
         (4, "4. Formulario de registro"),
-        (5, "5. Hoja de vida"),
-        (6, "6. Resumen analítico")
+        (6, "5. Resumen analítico")
     ];
 
     private int _activo = 1;
@@ -323,7 +275,6 @@
     private string? _vistaIntencion;
     private string? _vistaAcuerdo;
     private string? _vistaRegistro;
-    private string? _vistaHoja;
 
     private Task RecibirCarta(string? valor) => Recibir(valor, v => _vistaCarta = v, AlFirmaCarta);
 
@@ -333,8 +284,6 @@
 
     private Task RecibirRegistro(string? valor) => Recibir(valor, v => _vistaRegistro = v, AlFirmaRegistro);
 
-    private Task RecibirHoja(string? valor) => Recibir(valor, v => _vistaHoja = v, AlFirmaHoja);
-
     private static async Task Recibir(string? valor, Action<string?> guardar, EventCallback<string?> avisar)
     {
         guardar(valor);
@@ -343,8 +292,14 @@
 
     private async Task DescargarPdfAsync()
     {
+        if (_bajando)
+        {
+            return;
+        }
+
         _bajando = true;
         _avisoPdf = null;
+        var inicio = DateTime.UtcNow;
         try
         {
             var (bytes, nombre) = await Cliente.VistaPreviaPdfAsync(Datos, _activo);
@@ -356,6 +311,7 @@
         }
         finally
         {
+            await PausaDescarga.CompletarAsync(inicio);
             _bajando = false;
         }
     }
@@ -367,19 +323,16 @@
     [Parameter] public string? FirmaIntencion { get; set; }
     [Parameter] public string? FirmaAcuerdo { get; set; }
     [Parameter] public string? FirmaRegistro { get; set; }
-    [Parameter] public string? FirmaHoja { get; set; }
 
     [Parameter] public EventCallback<string?> AlFirmaCarta { get; set; }
     [Parameter] public EventCallback<string?> AlFirmaIntencion { get; set; }
     [Parameter] public EventCallback<string?> AlFirmaAcuerdo { get; set; }
     [Parameter] public EventCallback<string?> AlFirmaRegistro { get; set; }
-    [Parameter] public EventCallback<string?> AlFirmaHoja { get; set; }
 
     private CartaSolicitudEstudioDto Carta => Formatos.CartaSolicitud;
     private CartaIntencionEstudioDto Intencion => Formatos.CartaIntencion;
     private AcuerdoConfidencialidadEstudioDto Acuerdo => Formatos.Acuerdo;
     private FormularioRegistroEstudioDto Registro => Formatos.Registro;
-    private HojaVidaEstudioDto Hoja => Formatos.HojaVida;
     private ResumenAnaliticoEstudioDto Resumen => Formatos.Resumen;
 
     private string TotalPresupuesto

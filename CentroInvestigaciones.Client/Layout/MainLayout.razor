@@ -75,7 +75,7 @@ else
         else if (EsEstudios)
         {
             <BarraEstudios />
-            <main id="contenido" class="cuerpo-app @(EsListadoEstudios ? "cuerpo-estudios" : null)">
+            <main id="contenido" class="cuerpo-app cuerpo-ancho">
                 @ContenidoPagina()
             </main>
         }
@@ -191,9 +191,8 @@ else
 
     private bool EsAgenda =>
         RutaActual == "estudios-clinicos/agenda"
-        || RutaActual == "udd/agenda";
-
-    private bool EsListadoEstudios => RutaActual == "comite/estudios";
+        || RutaActual == "udd/agenda"
+        || RutaActual == "agenda/general";
 
     private bool EsEstudios =>
         RutaActual == "comite/estudios"

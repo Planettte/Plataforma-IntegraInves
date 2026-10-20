@@ -340,16 +340,21 @@ public sealed class AlmacenArchivoLocal : IAlmacenNucleo
     {
         var areas = new (string Codigo, string Nombre)[]
         {
-            ("estudios", "Estudios clínicos"),
+            ("estudios", "Estudios Clínicos"),
             ("udd", "Diseño y desarrollo"),
-            ("comite", "Investigaciones")
+            ("comite", "Comité de investigaciones")
         };
 
         foreach (var (codigo, nombre) in areas)
         {
-            if (_areas.All(area => area.Codigo != codigo))
+            var existente = _areas.FirstOrDefault(area => area.Codigo == codigo);
+            if (existente is null)
             {
                 _areas.Add(new Area { Id = Guid.NewGuid(), Codigo = codigo, Nombre = nombre });
+            }
+            else if (!string.Equals(existente.Nombre, nombre, StringComparison.Ordinal))
+            {
+                existente.Nombre = nombre;
             }
         }
 

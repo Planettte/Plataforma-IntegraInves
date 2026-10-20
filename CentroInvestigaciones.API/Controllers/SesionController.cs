@@ -3,6 +3,7 @@ using CentroInvestigaciones.API.Autenticacion;
 using CentroInvestigaciones.Application.Nucleo;
 using CentroInvestigaciones.Domain;
 using CentroInvestigaciones.Shared;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -27,6 +28,7 @@ public sealed class SesionController : ControllerBase
         _usuarios = usuarios;
     }
 
+    [AllowAnonymous]
     [HttpGet("estado")]
     public ActionResult<EstadoAutenticacionDto> Estado()
     {
@@ -36,6 +38,7 @@ public sealed class SesionController : ControllerBase
         };
     }
 
+    [AllowAnonymous]
     [HttpGet("yo")]
     public async Task<ActionResult<SesionActualDto>> Yo()
     {
@@ -174,6 +177,7 @@ public sealed class SesionController : ControllerBase
         return await CompletarPerfil(solicitud);
     }
 
+    [AllowAnonymous]
     [HttpGet("ingresar")]
     public IActionResult Ingresar([FromQuery] string? retorno)
     {

@@ -4,6 +4,7 @@ using CentroInvestigaciones.Application.Protocolos;
 using CentroInvestigaciones.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CentroInvestigaciones.API.Controllers;
 
@@ -16,18 +17,32 @@ public sealed class ProtocolosPublicosController : ControllerBase
     private readonly IAlmacenNucleo _nucleo;
     private readonly AvisosProtocolo _avisos;
     private readonly IWebHostEnvironment _entorno;
+    private readonly RetoCaptcha _captcha;
+    private readonly OrigenPublico _origen;
 
-    public ProtocolosPublicosController(IAlmacenProtocolos almacen, IAlmacenNucleo nucleo, AvisosProtocolo avisos, IWebHostEnvironment entorno)
+    public ProtocolosPublicosController(IAlmacenProtocolos almacen, IAlmacenNucleo nucleo, AvisosProtocolo avisos, IWebHostEnvironment entorno, RetoCaptcha captcha, OrigenPublico origen)
     {
         _almacen = almacen;
         _nucleo = nucleo;
         _avisos = avisos;
         _entorno = entorno;
+        _captcha = captcha;
+        _origen = origen;
     }
 
+    private ActionResult? SinCaptcha() =>
+        _captcha.Listo(HttpContext) ? null : StatusCode(StatusCodes.Status403Forbidden);
+
     [HttpGet("revisores")]
-    public async Task<ActionResult<List<RevisorProtocoloDto>>> Revisores(CancellationToken ct) =>
-        await RevisoresProtocolo.ListarAsync(_nucleo, ct);
+    public async Task<ActionResult<List<RevisorProtocoloDto>>> Revisores(CancellationToken ct)
+    {
+        if (SinCaptcha() is { } rechazo)
+        {
+            return rechazo;
+        }
+
+        return await RevisoresProtocolo.ListarAsync(_nucleo, ct);
+    }
 
     [HttpGet("instrucciones")]
     public IActionResult Instrucciones()
@@ -48,9 +63,15 @@ public sealed class ProtocolosPublicosController : ControllerBase
         return protocolo is null ? NotFound() : await HaciaAsync(protocolo, ct);
     }
 
+    [EnableRateLimiting("envios-publicos")]
     [HttpPost]
     public async Task<ActionResult<ResultadoProtocoloDto>> Crear([FromBody] GuardarProtocoloDto solicitud, CancellationToken ct)
     {
+        if (SinCaptcha() is { } rechazo)
+        {
+            return rechazo;
+        }
+
         if (!await RevisoresProtocolo.EsMedicoUddAsync(_nucleo, solicitud.RevisorId, ct))
         {
             return BadRequest("El médico de apoyo debe ser una cuenta de UDD con esta herramienta.");
@@ -69,9 +90,15 @@ public sealed class ProtocolosPublicosController : ControllerBase
         }
     }
 
+    [EnableRateLimiting("envios-publicos")]
     [HttpPut("{token}")]
     public async Task<ActionResult<ResultadoProtocoloDto>> Reenviar(string token, [FromBody] GuardarProtocoloDto solicitud, CancellationToken ct)
     {
+        if (SinCaptcha() is { } rechazo)
+        {
+            return rechazo;
+        }
+
         if (!await RevisoresProtocolo.EsMedicoUddAsync(_nucleo, solicitud.RevisorId, ct))
         {
             return BadRequest("El médico de apoyo debe ser una cuenta de UDD con esta herramienta.");
@@ -104,9 +131,7 @@ public sealed class ProtocolosPublicosController : ControllerBase
     };
 
     private ActionResult Fallo(InvalidOperationException excepcion) =>
-        excepcion.Message.Contains("encontró", StringComparison.Ordinal)
-            ? NotFound(excepcion.Message)
-            : BadRequest(excepcion.Message);
+        RespuestaOperacion.De(HttpContext, excepcion, nameof(ProtocolosPublicosController));
 
-    private string Origen() => $"{Request.Scheme}://{Request.Host}";
+    private string Origen() => _origen.Valor;
 }

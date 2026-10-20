@@ -1,22 +1,12 @@
 @page "/agenda/general"
-@layout LayoutAgendaGeneral
 @inject ClienteAgenda Cliente
 @inject ClienteSesion Sesion
 @inject EstadoSesion Estado
-@inject NavigationManager Navegacion
 
 <PageTitle>Agenda general · Centro de Investigaciones</PageTitle>
 
 <h2>Agenda general</h2>
 <p class="texto-suave">Agenda de todos los médicos. Se consulta sin modificar los registros.</p>
-
-@if (_puedeCompartirEnlace)
-{
-    <div class="historial-enlace">
-        <span>Enlace para consultar sin ingresar</span>
-        <input class="entrada" readonly value="@Enlace" />
-    </div>
-}
 
 @if (_error is not null)
 {
@@ -184,13 +174,6 @@ else
 
     private bool SinCriterio =>
         string.IsNullOrWhiteSpace(_buscarTexto) && _buscarDesde is null && _buscarHasta is null;
-
-    private bool _puedeCompartirEnlace =>
-        Estado.Actual.Permisos.Contains("herramientas.estudios.agenda")
-        || Estado.Actual.Permisos.Contains("herramientas.udd.agenda")
-        || Estado.Actual.Permisos.Contains("nucleo.usuarios.aprobar");
-
-    private string Enlace => Navegacion.ToAbsoluteUri("agenda/general").ToString();
 
     protected override async Task OnInitializedAsync()
     {
