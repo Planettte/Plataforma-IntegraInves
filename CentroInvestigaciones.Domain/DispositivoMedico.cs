@@ -34,6 +34,8 @@ public sealed class DispositivoMedico
 
     public string Ubicacion { get; set; } = "";
 
+    public List<MovimientoUbicacion> HistorialUbicacion { get; set; } = [];
+
     public string Area { get; set; } = "";
 
     public string Observaciones { get; set; } = "";
@@ -41,4 +43,13 @@ public sealed class DispositivoMedico
     public string CalificacionVentana1 { get; set; } = "";
 
     public string CalificacionVentana2 { get; set; } = "";
+}
+
+public sealed class MovimientoUbicacion
+{
+    public string Ubicacion { get; set; } = "";
+
+    public DateTime FechaUtc { get; set; }
+
+    public string Persona { get; set; } = "";
 }

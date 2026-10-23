@@ -1435,9 +1435,9 @@ textarea.campo-carta { display: block; width: 100%; min-height: 4.5rem; resize: 
 
 .tarjetas-dispositivo, .tarjetas-farmacia { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
 .tarjetas-farmacia { grid-template-columns: repeat(auto-fit, minmax(180px, 220px)); }
-.tarjeta-dispositivo { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio); padding: 0.85rem 1rem; }
-.tarjeta-dispositivo h3 { margin: 0 0 0.35rem; font-size: 0.92rem; color: var(--texto-suave); font-weight: 650; }
-.tarjeta-dispositivo strong { font-size: 1.7rem; }
+.tarjetas-dispositivo .hoja { margin-bottom: 0; }
+.tarjetas-dispositivo .hoja h2 { margin: 0 0 0.35rem; font-size: 0.92rem; color: var(--texto-suave); font-weight: 650; }
+.tarjetas-dispositivo .hoja strong { font-size: 1.7rem; }
 .fila-semaforo { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .semaforo {
     display: inline-flex; align-items: center; border-radius: 999px; padding: 0.12rem 0.55rem;
@@ -1616,11 +1616,29 @@ button.agenda-registro { cursor: pointer; }
 .tabla-dispositivos .celda-ancha { white-space: normal; min-width: 10rem; max-width: 16rem; }
 .fila-dispositivo { cursor: pointer; }
 .fila-dispositivo:hover { background: var(--fila); }
-.modal-ancho { width: min(760px, calc(100vw - 2.5rem)); max-height: min(74vh, calc(100vh - 6.5rem)); }
-.form-dispositivo { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-.form-dispositivo .full { grid-column: 1 / -1; }
-.form-dispositivo label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; }
-.form-dispositivo .entrada { margin-top: 0; }
+.modal.modal-dispositivo {
+    width: min(920px, calc(100vw - 2.5rem));
+    max-height: min(88vh, calc(100vh - 3.5rem));
+}
+.modal.modal-dispositivo.con-historial { width: min(1180px, calc(100vw - 2.5rem)); }
+.modal.modal-dispositivo > div:not(.modal-acciones) { overflow: auto; min-height: 0; flex: 1; }
+.dispositivo-editor .hoja { margin-bottom: 0.75rem; }
+.dispositivo-editor .hoja:last-child { margin-bottom: 0; }
+.dispositivo-editor .campo { margin-bottom: 0; }
+.dispositivo-editor .fila-campos { margin-bottom: 0.75rem; }
+.dispositivo-editor.con-historial { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 280px); gap: 0.85rem; align-items: start; }
+.campo-con-accion { display: flex; align-items: center; gap: 0.45rem; }
+.campo-con-accion .entrada { margin-top: 0; min-width: 0; }
+.campo-con-accion .entrada[readonly] { background: var(--fila); }
+.campo-con-accion .boton { flex: 0 0 auto; }
+.historial-ubicacion { margin: 0; position: sticky; top: 0; }
+.historial-ubicacion h2 { font-size: 1rem; }
+.historial-ubicacion .campo { margin-bottom: 0.65rem; }
+.historial-ubicacion .entrada { margin-top: 0.25rem; }
+.historial-ubicacion ul { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.45rem; }
+.historial-ubicacion li { background: var(--fila); border-radius: 10px; padding: 0.5rem 0.65rem; }
+.historial-ubicacion li strong, .historial-ubicacion li small { display: block; }
+.historial-ubicacion li small { color: var(--texto-suave); margin-top: 0.15rem; }
 
 @media (max-width: 1100px) {
     .cuerpo-app, .cuerpo-app.cuerpo-estudios, .cuerpo-app.cuerpo-ancho, .cuerpo-app.cuerpo-libre {
@@ -1650,7 +1668,7 @@ button.agenda-registro { cursor: pointer; }
     .acciones-sesion { margin-left: 0; }
     .filtros-estudios, .filtros-dispositivo { flex-direction: column; align-items: stretch; }
     .filtros-estudios .seleccion, .filtros-dispositivo label { width: 100%; }
-    .form-dispositivo { grid-template-columns: 1fr; }
+    .dispositivo-editor.con-historial { grid-template-columns: 1fr; }
     .agenda-lienzo, .agenda-dia-cuerpo.con-monitorias, .registro-partido { grid-template-columns: 1fr; }
     .agenda-dia-acciones { width: 100%; justify-content: flex-start; }
     .nota-tarjeta, .persona-fila { flex-direction: column; align-items: flex-start; }

@@ -29,22 +29,22 @@
 else if (!_inventario)
 {
     <div class="tarjetas-dispositivo">
-        <article class="tarjeta-dispositivo">
-            <h3>Total dispositivos</h3>
+        <section class="hoja">
+            <h2>Total dispositivos</h2>
             <strong>@_todos.Count</strong>
-        </article>
+        </section>
         @foreach (var tipo in Tipos)
         {
             var conteo = Conteo(tipo.Clave);
-            <article class="tarjeta-dispositivo">
-                <h3>@tipo.Nombre</h3>
+            <section class="hoja">
+                <h2>@tipo.Nombre</h2>
                 <div class="fila-semaforo">
                     <span class="semaforo semaforo-rojo">@conteo.Rojo</span>
                     <span class="semaforo semaforo-amarillo">@conteo.Amarillo</span>
                     <span class="semaforo semaforo-verde">@conteo.Verde</span>
                     <span class="semaforo semaforo-gris">@conteo.Gris</span>
                 </div>
-            </article>
+            </section>
         }
     </div>
 
@@ -194,33 +194,83 @@ else
     }
 }
 
-<Modal Visible="_editando" Titulo="@(_idEdicion is null ? "Nuevo dispositivo" : "Editar dispositivo")" Clase="modal-ancho" AlCerrar="Cerrar">
+<Modal Visible="_editando" Titulo="@(_idEdicion is null ? "Nuevo dispositivo" : "Editar dispositivo")" Clase="@(_historialAbierto ? "modal-dispositivo con-historial" : "modal-dispositivo")" AlCerrar="Cerrar">
     <ChildContent>
     @if (_error is not null)
     {
         <Alerta Tipo="peligro" Mensaje="@_error" />
     }
-    <div class="form-dispositivo">
-        @Campo("DM", _form.Dm, valor => _form.Dm = valor)
-        @Campo("Marca", _form.Marca, valor => _form.Marca = valor)
-        @Campo("Modelo", _form.Modelo, valor => _form.Modelo = valor)
-        @Campo("Riesgo", _form.Riesgo, valor => _form.Riesgo = valor)
-        @Campo("Serie", _form.Serie, valor => _form.Serie = valor)
-        @Campo("Código de activo", _form.CodigoActivo, valor => _form.CodigoActivo = valor)
-        @Campo("Inventario Biomédica", _form.InventarioBiomedica, valor => _form.InventarioBiomedica = valor)
-        @Campo("Registro Invima", _form.RegistroInvima, valor => _form.RegistroInvima = valor)
-        @Campo("Periodicidad mantenimiento", _form.PeriodicidadMantenimiento, valor => _form.PeriodicidadMantenimiento = valor, "Anual, Semestral, NO APLICA")
-        @Campo("Último mantenimiento", _form.UltimoMantenimiento, valor => _form.UltimoMantenimiento = valor, "marzo 2026")
-        @Campo("Mes calificación", _form.MesCalificacion, valor => _form.MesCalificacion = valor, "MAR/ABR - SEP/OCT")
-        @Campo("Mes verificación metrológica", _form.MesVerificacionMetrologica, valor => _form.MesVerificacionMetrologica = valor, "Junio")
-        @Campo("Periodicidad calibración", _form.PeriodicidadCalibracion, valor => _form.PeriodicidadCalibracion = valor, "Anual, NO APLICA")
-        @Campo("Última calibración", _form.UltimaCalibracion, valor => _form.UltimaCalibracion = valor, "marzo 2026")
-        @Campo("Ubicación", _form.Ubicacion, valor => _form.Ubicacion = valor)
-        @Campo("Área", _form.Area, valor => _form.Area = valor)
-        <label class="full">
-            Observaciones
-            <textarea class="entrada" rows="3" value="@_form.Observaciones" @oninput="EscribirObservaciones"></textarea>
-        </label>
+    <div class="dispositivo-editor @(_historialAbierto ? "con-historial" : "")">
+        <div>
+            <section class="hoja">
+                <h2>Identificación</h2>
+                <div class="fila-campos">
+                    @Campo("disp-dm", "DM", _form.Dm, valor => _form.Dm = valor)
+                    @Campo("disp-marca", "Marca", _form.Marca, valor => _form.Marca = valor)
+                    @Campo("disp-modelo", "Modelo", _form.Modelo, valor => _form.Modelo = valor)
+                    @Campo("disp-riesgo", "Riesgo", _form.Riesgo, valor => _form.Riesgo = valor)
+                    @Campo("disp-serie", "Serie", _form.Serie, valor => _form.Serie = valor)
+                    @Campo("disp-activo", "Código de activo", _form.CodigoActivo, valor => _form.CodigoActivo = valor)
+                    @Campo("disp-biomedica", "Inventario Biomédica", _form.InventarioBiomedica, valor => _form.InventarioBiomedica = valor)
+                    @Campo("disp-invima", "Registro Invima", _form.RegistroInvima, valor => _form.RegistroInvima = valor)
+                </div>
+            </section>
+            <section class="hoja">
+                <h2>Mantenimiento y calibración</h2>
+                <div class="fila-campos">
+                    @Campo("disp-per-mant", "Periodicidad mantenimiento", _form.PeriodicidadMantenimiento, valor => _form.PeriodicidadMantenimiento = valor, "Anual, Semestral, NO APLICA")
+                    @Campo("disp-ult-mant", "Último mantenimiento", _form.UltimoMantenimiento, valor => _form.UltimoMantenimiento = valor, "marzo 2026")
+                    @Campo("disp-mes-calif", "Mes calificación", _form.MesCalificacion, valor => _form.MesCalificacion = valor, "MAR/ABR - SEP/OCT")
+                    @Campo("disp-mes-verif", "Mes verificación metrológica", _form.MesVerificacionMetrologica, valor => _form.MesVerificacionMetrologica = valor, "Junio")
+                    @Campo("disp-per-calib", "Periodicidad calibración", _form.PeriodicidadCalibracion, valor => _form.PeriodicidadCalibracion = valor, "Anual, NO APLICA")
+                    @Campo("disp-ult-calib", "Última calibración", _form.UltimaCalibracion, valor => _form.UltimaCalibracion = valor, "marzo 2026")
+                </div>
+            </section>
+            <section class="hoja">
+                <h2>Ubicación</h2>
+                <div class="fila-campos">
+                    <div class="campo">
+                        <label for="disp-ubicacion">Ubicación</label>
+                        <div class="campo-con-accion">
+                            <input id="disp-ubicacion" class="entrada" readonly value="@(_form.Ubicacion.Length == 0 ? "Sin ubicación" : _form.Ubicacion)" />
+                            <Boton Variante="secundario" AlActivar="AlternarHistorial">Cambiar</Boton>
+                        </div>
+                    </div>
+                    @Campo("disp-area", "Área", _form.Area, valor => _form.Area = valor)
+                </div>
+                <div class="campo">
+                    <label for="disp-obs">Observaciones</label>
+                    <textarea id="disp-obs" class="entrada" rows="3" value="@_form.Observaciones" @oninput="EscribirObservaciones"></textarea>
+                </div>
+            </section>
+        </div>
+        @if (_historialAbierto)
+        {
+            <aside class="hoja historial-ubicacion">
+                <h2>Historial de ubicación</h2>
+                <div class="campo">
+                    <label for="disp-nueva-ubicacion">Nueva ubicación</label>
+                    <input id="disp-nueva-ubicacion" class="entrada" @bind="_nuevaUbicacion" @bind:event="oninput" />
+                </div>
+                <Boton AlActivar="RegistrarUbicacion">Registrar</Boton>
+                @if (LineasHistorial.Count == 0)
+                {
+                    <p class="ayuda-campo">Aún no hay cambios de ubicación.</p>
+                }
+                else
+                {
+                    <ul>
+                        @foreach (var linea in LineasHistorial)
+                        {
+                            <li>
+                                <strong>@(linea.Ubicacion.Length == 0 ? "Sin ubicación" : linea.Ubicacion)</strong>
+                                <small>@linea.Detalle</small>
+                            </li>
+                        }
+                    </ul>
+                }
+            </aside>
+        }
     </div>
     </ChildContent>
     <Pie>
@@ -260,6 +310,10 @@ else
 
     private List<DispositivoDto> _todos = [];
     private GuardarDispositivoDto _form = new();
+    private List<MovimientoUbicacionDto> _historial = [];
+    private string _ubicacionGuardada = "";
+    private string _nuevaUbicacion = "";
+    private bool _historialAbierto;
     private Guid? _idEdicion;
     private string _ubicacion = "";
     private string _area = "";
@@ -442,6 +496,10 @@ else
     {
         _idEdicion = null;
         _form = new GuardarDispositivoDto();
+        _historial = [];
+        _ubicacionGuardada = "";
+        _nuevaUbicacion = "";
+        _historialAbierto = false;
         _error = null;
         _editando = true;
     }
@@ -449,6 +507,10 @@ else
     private void AbrirEdicion(DispositivoDto item)
     {
         _idEdicion = item.Id;
+        _historial = item.HistorialUbicacion.ToList();
+        _ubicacionGuardada = item.Ubicacion;
+        _nuevaUbicacion = "";
+        _historialAbierto = false;
         _form = new GuardarDispositivoDto
         {
             Dm = item.Dm,
@@ -473,7 +535,60 @@ else
         _editando = true;
     }
 
-    private void Cerrar() => _editando = false;
+    private void Cerrar()
+    {
+        _editando = false;
+        _historialAbierto = false;
+    }
+
+    private void AlternarHistorial()
+    {
+        _historialAbierto = !_historialAbierto;
+        _error = null;
+    }
+
+    private void RegistrarUbicacion()
+    {
+        var texto = _nuevaUbicacion.Trim();
+        if (texto.Length == 0)
+        {
+            _error = "Indica la ubicación.";
+            return;
+        }
+
+        if (string.Equals(texto, _form.Ubicacion.Trim(), StringComparison.Ordinal))
+        {
+            _error = "La ubicación no cambió.";
+            return;
+        }
+
+        _form.Ubicacion = texto;
+        _nuevaUbicacion = "";
+        _error = null;
+    }
+
+    private IReadOnlyList<LineaUbicacion> LineasHistorial
+    {
+        get
+        {
+            var lineas = new List<LineaUbicacion>();
+            if (!string.Equals(_form.Ubicacion.Trim(), _ubicacionGuardada.Trim(), StringComparison.Ordinal))
+            {
+                lineas.Add(new LineaUbicacion(_form.Ubicacion.Trim(), "Pendiente de guardar"));
+            }
+
+            foreach (var movimiento in _historial.OrderByDescending(item => item.FechaUtc))
+            {
+                var quien = string.IsNullOrWhiteSpace(movimiento.Persona) ? "" : movimiento.Persona.Trim() + " · ";
+                lineas.Add(new LineaUbicacion(movimiento.Ubicacion, quien + Fecha(movimiento.FechaUtc)));
+            }
+
+            return lineas;
+        }
+    }
+
+    private static string Fecha(DateTime instante) =>
+        instante.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
 
     private async Task AbrirEncargadoAsync()
     {
@@ -569,12 +684,14 @@ else
         _ => "semaforo-gris"
     };
 
-    private RenderFragment Campo(string etiqueta, string valor, Action<string> asignar, string? placeholder = null) => @<label>
-        @etiqueta
-        <input class="entrada" placeholder="@placeholder" value="@valor" @oninput="e => asignar(Texto(e))" />
-    </label>;
+    private RenderFragment Campo(string id, string etiqueta, string valor, Action<string> asignar, string? placeholder = null) => @<div class="campo">
+        <label for="@id">@etiqueta</label>
+        <input id="@id" class="entrada" placeholder="@placeholder" value="@valor" @oninput="e => asignar(Texto(e))" />
+    </div>;
 
     private sealed record ConteoSemaforo(int Rojo, int Amarillo, int Verde, int Gris);
 
     private sealed record RojoVisible(string Dm, string Codigo, string Lugar, string Tipo);
+
+    private sealed record LineaUbicacion(string Ubicacion, string Detalle);
 }

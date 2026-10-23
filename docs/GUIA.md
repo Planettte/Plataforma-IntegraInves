@@ -138,7 +138,7 @@ Formulario de un solo uso. No hay lista ni archivo JSON.
 | Datos | `datos-locales/dispositivos.json` |
 | Avisos | `AvisadorDispositivos`, `VigilanciaDispositivos` |
 
-Inventario con semáforo de mantenimiento, calibración y verificación. El correo del encargado se guarda en el mismo JSON.
+Inventario con semáforo de mantenimiento, calibración y verificación. El correo del encargado se guarda en el mismo JSON. Cada cambio de ubicación queda en el historial del dispositivo, con la fecha y la persona de la sesión.
 
 ### Estudios académicos y clínicos
 

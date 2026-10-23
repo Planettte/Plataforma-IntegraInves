@@ -63,26 +63,26 @@ public sealed class DispositivosController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<DispositivoDto> Crear([FromBody] GuardarDispositivoDto solicitud)
+    public async Task<ActionResult<DispositivoDto>> Crear([FromBody] GuardarDispositivoDto solicitud, CancellationToken ct)
     {
         if (!TieneIdentidad(solicitud))
         {
             return BadRequest();
         }
 
-        var creado = _almacen.Crear(Desde(solicitud));
+        var creado = _almacen.Crear(Desde(solicitud), await PersonaAsync(ct));
         return CreatedAtAction(nameof(Listar), Mapa(creado, SemaforoDispositivos.Hoy()));
     }
 
     [HttpPut("{id:guid}")]
-    public ActionResult<DispositivoDto> Actualizar(Guid id, [FromBody] GuardarDispositivoDto solicitud)
+    public async Task<ActionResult<DispositivoDto>> Actualizar(Guid id, [FromBody] GuardarDispositivoDto solicitud, CancellationToken ct)
     {
         if (!TieneIdentidad(solicitud))
         {
             return BadRequest();
         }
 
-        var actualizado = _almacen.Actualizar(id, Desde(solicitud));
+        var actualizado = _almacen.Actualizar(id, Desde(solicitud), await PersonaAsync(ct));
         if (actualizado is null)
         {
             return NotFound();
@@ -107,6 +107,28 @@ public sealed class DispositivosController : ControllerBase
 
         var permisos = await _nucleo.PermisosDeUsuarioAsync(usuario.Id, ct);
         return permisos.Contains(PermisosNucleo.UsuariosAprobar, StringComparer.Ordinal);
+    }
+
+    private async Task<string> PersonaAsync(CancellationToken ct)
+    {
+        var identificador = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(identificador))
+        {
+            return "";
+        }
+
+        var usuario = await _nucleo.BuscarPorProveedorAsync(identificador, ct);
+        if (usuario is null)
+        {
+            return "";
+        }
+
+        if (!string.IsNullOrWhiteSpace(usuario.Nombre))
+        {
+            return usuario.Nombre.Trim();
+        }
+
+        return $"{usuario.Nombres} {usuario.Apellidos}".Trim();
     }
 
     private static bool TieneIdentidad(GuardarDispositivoDto solicitud) =>
@@ -151,6 +173,14 @@ public sealed class DispositivosController : ControllerBase
         PeriodicidadCalibracion = item.PeriodicidadCalibracion,
         UltimaCalibracion = item.UltimaCalibracion,
         Ubicacion = item.Ubicacion,
+        HistorialUbicacion = (item.HistorialUbicacion ?? [])
+            .Select(movimiento => new MovimientoUbicacionDto
+            {
+                Ubicacion = movimiento.Ubicacion,
+                FechaUtc = movimiento.FechaUtc,
+                Persona = movimiento.Persona
+            })
+            .ToList(),
         Area = item.Area,
         Observaciones = item.Observaciones,
         Mantenimiento = Semaforo(SemaforoDispositivos.Mantenimiento(item, hoy)),

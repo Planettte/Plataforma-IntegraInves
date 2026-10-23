@@ -47,19 +47,21 @@ public sealed class AlmacenDispositivosLocal : IAlmacenDispositivos
         }
     }
 
-    public DispositivoMedico Crear(DispositivoMedico datos)
+    public DispositivoMedico Crear(DispositivoMedico datos, string persona)
     {
         lock (_bloqueo)
         {
             datos.Id = Guid.NewGuid();
             Limpiar(datos);
+            datos.HistorialUbicacion = [];
+            RegistrarUbicacion(datos, "", datos.Ubicacion, persona);
             _dispositivos.Add(datos);
             GuardarSinBloqueo();
             return datos;
         }
     }
 
-    public DispositivoMedico? Actualizar(Guid id, DispositivoMedico datos)
+    public DispositivoMedico? Actualizar(Guid id, DispositivoMedico datos, string persona)
     {
         lock (_bloqueo)
         {
@@ -70,6 +72,7 @@ public sealed class AlmacenDispositivosLocal : IAlmacenDispositivos
             }
 
             Limpiar(datos);
+            var ubicacionAnterior = actual.Ubicacion;
             actual.Dm = datos.Dm;
             actual.Marca = datos.Marca;
             actual.Modelo = datos.Modelo;
@@ -85,6 +88,7 @@ public sealed class AlmacenDispositivosLocal : IAlmacenDispositivos
             actual.PeriodicidadCalibracion = datos.PeriodicidadCalibracion;
             actual.UltimaCalibracion = datos.UltimaCalibracion;
             actual.Ubicacion = datos.Ubicacion;
+            RegistrarUbicacion(actual, ubicacionAnterior, datos.Ubicacion, persona);
             actual.Area = datos.Area;
             actual.Observaciones = datos.Observaciones;
             GuardarSinBloqueo();
@@ -219,6 +223,22 @@ public sealed class AlmacenDispositivosLocal : IAlmacenDispositivos
         datos.Ubicacion = datos.Ubicacion.Trim();
         datos.Area = datos.Area.Trim();
         datos.Observaciones = datos.Observaciones.Trim();
+    }
+
+    private static void RegistrarUbicacion(DispositivoMedico dispositivo, string anterior, string nueva, string persona)
+    {
+        if (string.Equals(anterior.Trim(), nueva.Trim(), StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        dispositivo.HistorialUbicacion ??= [];
+        dispositivo.HistorialUbicacion.Add(new MovimientoUbicacion
+        {
+            Ubicacion = nueva.Trim(),
+            FechaUtc = DateTime.UtcNow,
+            Persona = persona.Trim()
+        });
     }
 
     private sealed class ArchivoDispositivos

@@ -41,6 +41,8 @@ public sealed class DispositivoDto
 
     public string Ubicacion { get; set; } = "";
 
+    public List<MovimientoUbicacionDto> HistorialUbicacion { get; set; } = [];
+
     public string Area { get; set; } = "";
 
     public string Observaciones { get; set; } = "";
@@ -87,6 +89,15 @@ public sealed class GuardarDispositivoDto
     public string Area { get; set; } = "";
 
     public string Observaciones { get; set; } = "";
+}
+
+public sealed class MovimientoUbicacionDto
+{
+    public string Ubicacion { get; set; } = "";
+
+    public DateTime FechaUtc { get; set; }
+
+    public string Persona { get; set; } = "";
 }
 
 public sealed class EncargadoDispositivosDto

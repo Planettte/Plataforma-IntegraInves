@@ -8,9 +8,9 @@ public interface IAlmacenDispositivos
 
     DispositivoMedico? Buscar(Guid id);
 
-    DispositivoMedico Crear(DispositivoMedico datos);
+    DispositivoMedico Crear(DispositivoMedico datos, string persona);
 
-    DispositivoMedico? Actualizar(Guid id, DispositivoMedico datos);
+    DispositivoMedico? Actualizar(Guid id, DispositivoMedico datos, string persona);
 
     IReadOnlyList<string> Avisos();
 
