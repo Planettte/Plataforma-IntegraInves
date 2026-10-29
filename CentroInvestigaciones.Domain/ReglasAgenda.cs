@@ -8,7 +8,7 @@ public static class ReglasAgenda
     public const string Citas = "citas";
     public const string Otros = "otros";
     public const int MinutoInicio = 6 * 60;
-    public const int MinutoFin = 17 * 60;
+    public const int MinutoFin = 20 * 60;
 
     public static bool AgendaEstudios(string agenda) =>
         agenda is Medicos or Coordinacion;

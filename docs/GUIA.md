@@ -113,7 +113,7 @@ Dos listas distintas. El formato del medicamento se cierra al primer guardado. E
 | API | `AgendaController` |
 | Datos | `datos-locales/agenda.json` |
 
-Citas por médico, monitorías y festivos. Coordinación, médicos y UDD usan su agenda. Apoyo y farmacia consultan la agenda general, dentro de la sesión, sin modificar registros.
+Citas por médico, monitorías y festivos, de 6:00 a 20:00. Puede haber más de un registro a la misma hora. Coordinación, médicos y UDD usan su agenda. Apoyo y farmacia consultan la agenda general, dentro de la sesión, sin modificar registros.
 
 ### Retención documental
 

@@ -278,7 +278,7 @@ public sealed class AgendaController : ControllerBase
 
         if (!ReglasAgenda.HoraValida(solicitud.HoraInicio, solicitud.HoraFin))
         {
-            return BadRequest("El horario va de 6:00 a 17:00, en bloques de 30 minutos.");
+            return BadRequest("El horario va de 6:00 a 20:00, en bloques de 30 minutos.");
         }
 
         var existente = id is null ? null : _agenda.Citas().FirstOrDefault(item => item.Id == id);
@@ -329,17 +329,6 @@ public sealed class AgendaController : ControllerBase
             {
                 return BadRequest("Esa persona no está en esta agenda.");
             }
-        }
-
-        var solapa = _agenda.Citas().Any(item =>
-            item.Id != id
-            && item.Agenda == agenda
-            && item.Fecha == fecha
-            && string.Equals(item.Persona, destino.Nombre, StringComparison.OrdinalIgnoreCase)
-            && ReglasAgenda.Solapa(solicitud.HoraInicio, solicitud.HoraFin, item.HoraInicio, item.HoraFin));
-        if (solapa)
-        {
-            return BadRequest("Ese horario se solapa con otra cita de " + destino.Nombre + ".");
         }
 
         var cita = new CitaAgenda
